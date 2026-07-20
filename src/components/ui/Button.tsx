@@ -21,14 +21,14 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseStyles =
-    "inline-flex items-center justify-center rounded-lg font-semibold transition-all duration-200 ease-smooth disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2";
+    "inline-flex items-center justify-center rounded-lg font-semibold transition-all duration-200 ease-smooth disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 ring-offset-bg";
 
   const variants = {
-    primary: "bg-accent text-white hover:bg-accent/90 focus:ring-accent",
+    primary: "bg-accent text-accent-foreground hover:bg-accent/90 focus:ring-accent",
     secondary:
       "bg-accent-secondary text-white hover:bg-accent-secondary/90 focus:ring-accent-secondary",
     outline:
-      "border-2 border-accent text-accent hover:bg-accent hover:text-white focus:ring-accent",
+      "border-2 border-accent text-accent hover:bg-accent hover:text-accent-foreground focus:ring-accent",
     ghost: "text-text hover:bg-bg-subtle",
     danger: "bg-error text-white hover:bg-error/90 focus:ring-error",
   };

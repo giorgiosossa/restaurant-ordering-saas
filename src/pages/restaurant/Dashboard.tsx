@@ -14,12 +14,18 @@ import {
   UtensilsCrossed,
   FileText,
   Settings,
+  Users,
+  ChefHat,
+  Package,
 } from "lucide-react";
 import RestaurantHome from "./RestaurantHome";
 import Orders from "./Orders";
 import Menu from "./Menu";
 import Reports from "./Reports";
 import RestaurantSettings from "./RestaurantSettings";
+import Employees from "./Employees";
+import Comandas from "../kitchen/Comandas";
+import Inventario from "./Inventario";
 
 const RestaurantDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -53,6 +59,9 @@ const RestaurantDashboard: React.FC = () => {
     { path: "/restaurant", icon: LayoutDashboard, label: "Dashboard" },
     { path: "/restaurant/orders", icon: ShoppingBag, label: "Orders" },
     { path: "/restaurant/menu", icon: UtensilsCrossed, label: "Menu" },
+    { path: "/restaurant/employees", icon: Users, label: "Empleados" },
+    { path: "/restaurant/comandas", icon: ChefHat, label: "Comandas" },
+    { path: "/restaurant/inventario", icon: Package, label: "Inventario" },
     { path: "/restaurant/reports", icon: FileText, label: "Reports" },
     { path: "/restaurant/settings", icon: Settings, label: "Settings" },
   ];
@@ -114,6 +123,9 @@ const RestaurantDashboard: React.FC = () => {
           <Route index element={<RestaurantHome />} />
           <Route path="orders" element={<Orders />} />
           <Route path="menu" element={<Menu />} />
+          <Route path="employees" element={<Employees />} />
+          <Route path="comandas" element={<Comandas />} />
+          <Route path="inventario" element={<Inventario />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<RestaurantSettings />} />
         </Routes>

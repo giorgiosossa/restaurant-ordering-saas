@@ -91,11 +91,11 @@ const AllRestaurants: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
-        return <Badge variant="success">Active</Badge>;
+        return <Badge variant="success">Activo</Badge>;
       case "blocked":
-        return <Badge variant="error">Blocked</Badge>;
+        return <Badge variant="error">Bloqueado</Badge>;
       case "trial":
-        return <Badge variant="warning">Trial</Badge>;
+        return <Badge variant="warning">Prueba</Badge>;
       default:
         return <Badge variant="neutral">{status}</Badge>;
     }
@@ -117,7 +117,7 @@ const AllRestaurants: React.FC = () => {
   };
 
   if (loading) {
-    return <Loading text="Loading restaurants..." />;
+    return <Loading text="Cargando restaurantes..." />;
   }
 
   return (
@@ -125,9 +125,9 @@ const AllRestaurants: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text mb-2">All Restaurants</h2>
+          <h2 className="text-2xl font-bold text-text mb-2">Todos los Restaurantes</h2>
           <p className="text-text-secondary">
-            Manage all registered restaurants
+            Gestiona todos los restaurantes registrados
           </p>
         </div>
         <div className="flex items-center space-x-4">
@@ -135,7 +135,7 @@ const AllRestaurants: React.FC = () => {
             {restaurants.length} Total
           </Badge>
           <Badge variant="success" className="text-lg px-4 py-2">
-            {restaurants.filter((r) => r.status === "active").length} Active
+            {restaurants.filter((r) => r.status === "active").length} Activos
           </Badge>
         </div>
       </div>
@@ -143,7 +143,7 @@ const AllRestaurants: React.FC = () => {
       {/* Real-time indicator */}
       <div className="flex items-center space-x-2 text-sm text-success">
         <div className="w-2 h-2 bg-success rounded-full animate-pulse" />
-        <span>Live updates enabled</span>
+        <span>Actualizaciones en vivo activas</span>
       </div>
 
       {/* Filters */}
@@ -151,7 +151,7 @@ const AllRestaurants: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <Input
-              placeholder="Search by name, owner, phone, or city..."
+              placeholder="Buscar por nombre, dueño, teléfono o ciudad..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               icon={<Search className="w-5 h-5" />}
@@ -162,10 +162,10 @@ const AllRestaurants: React.FC = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               options={[
-                { value: "all", label: "All Status" },
-                { value: "active", label: "Active" },
-                { value: "blocked", label: "Blocked" },
-                { value: "trial", label: "Trial" },
+                { value: "all", label: "Todos los Estados" },
+                { value: "active", label: "Activo" },
+                { value: "blocked", label: "Bloqueado" },
+                { value: "trial", label: "Prueba" },
               ]}
             />
           </div>
@@ -177,12 +177,12 @@ const AllRestaurants: React.FC = () => {
         <Card className="text-center py-12">
           <StoreIcon className="w-16 h-16 text-text-secondary mx-auto mb-4 opacity-50" />
           <h3 className="text-xl font-semibold text-text mb-2">
-            No Restaurants Found
+            No Se Encontraron Restaurantes
           </h3>
           <p className="text-text-secondary">
             {searchTerm || statusFilter !== "all"
-              ? "Try adjusting your filters"
-              : "No restaurants registered yet"}
+              ? "Intenta ajustar tus filtros"
+              : "Aún no hay restaurantes registrados"}
           </p>
         </Card>
       ) : (
@@ -266,7 +266,7 @@ const AllRestaurants: React.FC = () => {
                     icon={<Eye className="w-4 h-4" />}
                     onClick={() => handleViewDetails(restaurant)}
                   >
-                    View
+                    Ver
                   </Button>
                   <Button
                     variant={
@@ -283,7 +283,7 @@ const AllRestaurants: React.FC = () => {
                     }
                     onClick={() => handleToggleBlock(restaurant)}
                   >
-                    {restaurant.status === "blocked" ? "Unblock" : "Block"}
+                    {restaurant.status === "blocked" ? "Desbloquear" : "Bloquear"}
                   </Button>
                 </div>
               </div>
@@ -338,7 +338,7 @@ const DetailsModal: React.FC<DetailsModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Restaurant Details"
+      title="Detalles del Restaurante"
       size="lg"
     >
       <div className="space-y-6">
@@ -357,9 +357,9 @@ const DetailsModal: React.FC<DetailsModalProps> = ({
           </div>
           <div className="text-right">
             {restaurant.status === "active" ? (
-              <Badge variant="success">Active</Badge>
+              <Badge variant="success">Activo</Badge>
             ) : restaurant.status === "blocked" ? (
-              <Badge variant="error">Blocked</Badge>
+              <Badge variant="error">Bloqueado</Badge>
             ) : (
               <Badge variant="warning">{restaurant.status}</Badge>
             )}
@@ -368,25 +368,25 @@ const DetailsModal: React.FC<DetailsModalProps> = ({
 
         {/* Details */}
         <div className="grid sm:grid-cols-2 gap-4">
-          <InfoItem label="Owner Name" value={restaurant.owner_name} />
+          <InfoItem label="Nombre del Dueño" value={restaurant.owner_name} />
           <InfoItem
-            label="Phone"
+            label="Teléfono"
             value={restaurant.phone}
             link={`tel:${restaurant.phone}`}
           />
           <InfoItem
-            label="Email"
+            label="Correo"
             value={restaurant.email}
             link={`mailto:${restaurant.email}`}
           />
-          <InfoItem label="City" value={restaurant.city} />
-          <InfoItem label="Address" value={restaurant.address} fullWidth />
+          <InfoItem label="Ciudad" value={restaurant.city} />
+          <InfoItem label="Dirección" value={restaurant.address} fullWidth />
           <InfoItem
-            label="Registered On"
+            label="Registrado el"
             value={formatDateTime(restaurant.created_at)}
           />
           <InfoItem
-            label="Last Updated"
+            label="Última Actualización"
             value={formatDateTime(restaurant.updated_at)}
           />
         </div>
@@ -395,20 +395,20 @@ const DetailsModal: React.FC<DetailsModalProps> = ({
         {planConfig && (
           <div className="bg-bg-subtle rounded-lg p-4">
             <h4 className="font-semibold text-text mb-3">
-              Subscription Details
+              Detalles de Suscripción
             </h4>
             <div className="space-y-2 text-sm">
               <p className="text-text-secondary">
                 <strong className="text-text">Plan:</strong> {planConfig.name}{" "}
-                (${planConfig.price}/month)
+                (${planConfig.price}/mes)
               </p>
               <p className="text-text-secondary">
-                <strong className="text-text">Features:</strong>{" "}
+                <strong className="text-text">Funciones:</strong>{" "}
                 {planConfig.features.join(", ")}
               </p>
               {restaurant.trial_ends_at && (
                 <p className="text-warning">
-                  <strong>Trial Ends:</strong>{" "}
+                  <strong>La prueba termina:</strong>{" "}
                   {formatDateTime(restaurant.trial_ends_at)}
                 </p>
               )}
@@ -419,7 +419,7 @@ const DetailsModal: React.FC<DetailsModalProps> = ({
         {/* Internal Notes */}
         {restaurant.internal_notes && (
           <div className="bg-bg-subtle rounded-lg p-4">
-            <h4 className="font-semibold text-text mb-2">Internal Notes</h4>
+            <h4 className="font-semibold text-text mb-2">Notas Internas</h4>
             <p className="text-text-secondary text-sm">
               {restaurant.internal_notes}
             </p>
@@ -429,7 +429,7 @@ const DetailsModal: React.FC<DetailsModalProps> = ({
         {/* Block Reason (if blocked) */}
         {restaurant.status === "blocked" && restaurant.block_reason && (
           <div className="bg-danger/10 border border-danger/20 rounded-lg p-4">
-            <h4 className="font-semibold text-danger mb-2">Block Reason</h4>
+            <h4 className="font-semibold text-danger mb-2">Motivo del Bloqueo</h4>
             <p className="text-text-secondary text-sm">
               {restaurant.block_reason}
             </p>
@@ -437,7 +437,7 @@ const DetailsModal: React.FC<DetailsModalProps> = ({
         )}
 
         <Button onClick={onClose} fullWidth>
-          Close
+          Cerrar
         </Button>
       </div>
     </Modal>
@@ -464,7 +464,7 @@ const BlockModal: React.FC<BlockModalProps> = ({
 
   const handleToggle = async () => {
     if (!isBlocked && !reason.trim()) {
-      setError("Please provide a reason for blocking");
+      setError("Proporciona un motivo para el bloqueo");
       return;
     }
 
@@ -482,7 +482,9 @@ const BlockModal: React.FC<BlockModalProps> = ({
       onClose();
       setReason("");
     } else {
-      setError(`Failed to ${isBlocked ? "unblock" : "block"} restaurant`);
+      setError(
+        `No se pudo ${isBlocked ? "desbloquear" : "bloquear"} el restaurante`
+      );
     }
   };
 
@@ -492,7 +494,7 @@ const BlockModal: React.FC<BlockModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isBlocked ? "Unblock Restaurant" : "Block Restaurant"}
+      title={isBlocked ? "Desbloquear Restaurante" : "Bloquear Restaurante"}
       size="md"
     >
       <div className="space-y-4">
@@ -505,28 +507,28 @@ const BlockModal: React.FC<BlockModalProps> = ({
         <p className="text-text-secondary">
           {isBlocked ? (
             <>
-              Are you sure you want to unblock{" "}
-              <strong className="text-text">{restaurant.name}</strong>? They
-              will regain access to their dashboard.
+              ¿Seguro que quieres desbloquear a{" "}
+              <strong className="text-text">{restaurant.name}</strong>?
+              Recuperarán el acceso a su panel.
             </>
           ) : (
             <>
-              Are you sure you want to block{" "}
-              <strong className="text-text">{restaurant.name}</strong>? They
-              will lose access to their dashboard immediately.
+              ¿Seguro que quieres bloquear a{" "}
+              <strong className="text-text">{restaurant.name}</strong>?
+              Perderán el acceso a su panel de inmediato.
             </>
           )}
         </p>
 
         {!isBlocked && (
           <Textarea
-            label="Reason for Blocking"
+            label="Motivo del Bloqueo"
             value={reason}
             onChange={(e) => {
               setReason(e.target.value);
               setError("");
             }}
-            placeholder="Please provide a reason..."
+            placeholder="Proporciona un motivo..."
             required
             rows={3}
           />
@@ -535,7 +537,7 @@ const BlockModal: React.FC<BlockModalProps> = ({
         {isBlocked && restaurant.block_reason && (
           <div className="bg-bg-subtle rounded-lg p-3 text-sm">
             <p className="text-text-secondary">
-              <strong className="text-text">Previously blocked for:</strong>{" "}
+              <strong className="text-text">Bloqueado anteriormente por:</strong>{" "}
               {restaurant.block_reason}
             </p>
           </div>
@@ -543,7 +545,7 @@ const BlockModal: React.FC<BlockModalProps> = ({
 
         <div className="flex gap-3">
           <Button type="button" variant="outline" onClick={onClose} fullWidth>
-            Cancel
+            Cancelar
           </Button>
           <Button
             variant={isBlocked ? "secondary" : "danger"}
@@ -551,7 +553,7 @@ const BlockModal: React.FC<BlockModalProps> = ({
             loading={loading}
             fullWidth
           >
-            {isBlocked ? "Unblock Restaurant" : "Block Restaurant"}
+            {isBlocked ? "Desbloquear Restaurante" : "Bloquear Restaurante"}
           </Button>
         </div>
       </div>

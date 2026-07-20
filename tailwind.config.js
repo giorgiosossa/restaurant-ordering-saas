@@ -1,19 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: "class",
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        bg: "#FFFFFF",
-        "bg-subtle": "#FAFAFA",
-        text: "#0A0A0A",
-        "text-secondary": "#6B6B6B",
-        accent: "#000000",
-        "accent-secondary": "#6366F1",
-        border: "#E5E5E5",
-        success: "#10B981",
-        error: "#EF4444",
-        warning: "#F59E0B",
+        bg: "rgb(var(--color-bg) / <alpha-value>)",
+        "bg-subtle": "rgb(var(--color-bg-subtle) / <alpha-value>)",
+        surface: "rgb(var(--color-surface) / <alpha-value>)",
+        text: "rgb(var(--color-text) / <alpha-value>)",
+        "text-secondary": "rgb(var(--color-text-secondary) / <alpha-value>)",
+        accent: "rgb(var(--color-accent) / <alpha-value>)",
+        "accent-foreground": "rgb(var(--color-accent-foreground) / <alpha-value>)",
+        "accent-secondary": "rgb(var(--color-accent-secondary) / <alpha-value>)",
+        border: "rgb(var(--color-border) / <alpha-value>)",
+        success: "rgb(var(--color-success) / <alpha-value>)",
+        error: "rgb(var(--color-error) / <alpha-value>)",
+        warning: "rgb(var(--color-warning) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

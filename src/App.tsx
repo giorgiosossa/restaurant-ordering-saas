@@ -9,6 +9,9 @@ import LoginPage from "./pages/public/LoginPage";
 // Restaurant dashboard
 import RestaurantDashboard from "./pages/restaurant/Dashboard";
 
+// Kitchen display
+import Comandas from "./pages/kitchen/Comandas";
+
 // Admin panel
 import AdminLogin from "./pages/admin/LoginPage";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -30,6 +33,9 @@ function App() {
 
         {/* Restaurant Dashboard Routes */}
         <Route path="/restaurant/*" element={<RestaurantDashboard />} />
+
+        {/* Kitchen Display Route */}
+        <Route path="/comandas" element={<Comandas />} />
 
         {/* Admin Panel Routes */}
         <Route path="/admin/login" element={<AdminLogin />} />

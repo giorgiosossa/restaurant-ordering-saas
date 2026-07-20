@@ -8,7 +8,7 @@ interface LoadingProps {
 
 export const Loading: React.FC<LoadingProps> = ({
   fullScreen = false,
-  text = "Loading...",
+  text = "Cargando...",
 }) => {
   const content = (
     <div className="flex flex-col items-center justify-center">
@@ -19,7 +19,7 @@ export const Loading: React.FC<LoadingProps> = ({
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-bg flex items-center justify-center z-50">
         {content}
       </div>
     );

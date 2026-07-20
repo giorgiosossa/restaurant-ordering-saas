@@ -8,6 +8,11 @@ import {
   Search,
   CheckCircle,
   Package,
+  Copy,
+  Receipt,
+  Banknote,
+  CreditCard,
+  Smartphone,
 } from "lucide-react";
 import {
   Card,
@@ -21,8 +26,13 @@ import {
   subscribeToMenuItems,
   createOrder,
 } from "../../services/restaurantService";
-import type { MenuItem } from "../../config/supabase";
-import { formatCurrency, isValidPhone } from "../../utils/helpers";
+import type { MenuItem, Order } from "../../config/supabase";
+import {
+  formatCurrency,
+  formatDateTime,
+  isValidPhone,
+  copyToClipboard,
+} from "../../utils/helpers";
 import { supabase } from "../../config/supabase";
 
 interface CartItem extends MenuItem {
@@ -161,7 +171,7 @@ const CustomerMenu: React.FC = () => {
   };
 
   if (loading) {
-    return <Loading text="Loading menu..." />;
+    return <Loading text="Cargando menú..." />;
   }
 
   if (!restaurant) {
@@ -170,11 +180,10 @@ const CustomerMenu: React.FC = () => {
         <Card className="text-center p-8">
           <Package className="w-16 h-16 text-text-secondary mx-auto mb-4 opacity-50" />
           <h2 className="text-2xl font-bold text-text mb-2">
-            Restaurant Not Found
+            Restaurante no encontrado
           </h2>
           <p className="text-text-secondary">
-            The restaurant you're looking for doesn't exist or is currently
-            inactive.
+            El restaurante que buscas no existe o está inactivo actualmente.
           </p>
         </Card>
       </div>
@@ -386,6 +395,7 @@ const CustomerMenu: React.FC = () => {
         isOpen={showCheckout}
         cart={cart}
         restaurantId={restaurant.id}
+        restaurant={restaurant}
         onClose={() => setShowCheckout(false)}
         onSuccess={() => {
           setCart([]);
@@ -448,12 +458,12 @@ const CartModal: React.FC<CartModalProps> = ({
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Your Cart" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title="Tu Carrito" size="lg">
       <div className="space-y-6">
         {cart.length === 0 ? (
           <div className="text-center py-8">
             <ShoppingCart className="w-16 h-16 text-text-secondary mx-auto mb-4 opacity-50" />
-            <p className="text-text-secondary">Your cart is empty</p>
+            <p className="text-text-secondary">Tu carrito está vacío</p>
           </div>
         ) : (
           <>
@@ -467,12 +477,12 @@ const CartModal: React.FC<CartModalProps> = ({
                     <h4 className="font-semibold text-text">{item.name}</h4>
                     {item.selectedSize && (
                       <p className="text-sm text-text-secondary">
-                        Size: {item.selectedSize.name}
+                        Tamaño: {item.selectedSize.name}
                       </p>
                     )}
                     {item.selectedAddons.length > 0 && (
                       <p className="text-sm text-text-secondary">
-                        Add-ons:{" "}
+                        Extras:{" "}
                         {item.selectedAddons.map((a) => a.name).join(", ")}
                       </p>
                     )}
@@ -513,7 +523,7 @@ const CartModal: React.FC<CartModalProps> = ({
                 <span>{formatCurrency(total)}</span>
               </div>
               <Button onClick={onCheckout} fullWidth size="lg">
-                Proceed to Checkout
+                Continuar al Pedido
               </Button>
             </div>
           </>
@@ -583,7 +593,7 @@ const ItemCustomizationModal: React.FC<ItemCustomizationModalProps> = ({
         {/* Sizes */}
         {item.sizes && item.sizes.length > 0 && (
           <div>
-            <h4 className="font-semibold text-text mb-3">Select Size</h4>
+            <h4 className="font-semibold text-text mb-3">Elige el tamaño</h4>
             <div className="space-y-2">
               {item.sizes.map((size) => (
                 <button
@@ -608,7 +618,9 @@ const ItemCustomizationModal: React.FC<ItemCustomizationModalProps> = ({
         {/* Addons */}
         {item.addons && item.addons.length > 0 && (
           <div>
-            <h4 className="font-semibold text-text mb-3">Add-ons (Optional)</h4>
+            <h4 className="font-semibold text-text mb-3">
+              Extras (Opcional)
+            </h4>
             <div className="space-y-2">
               {item.addons.map((addon) => (
                 <button
@@ -640,7 +652,7 @@ const ItemCustomizationModal: React.FC<ItemCustomizationModalProps> = ({
             fullWidth
             size="lg"
           >
-            Add to Cart
+            Agregar al Carrito
           </Button>
         </div>
       </div>
@@ -653,6 +665,7 @@ interface CheckoutModalProps {
   isOpen: boolean;
   cart: CartItem[];
   restaurantId: string;
+  restaurant: any;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -661,121 +674,412 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isOpen,
   cart,
   restaurantId,
+  restaurant,
   onClose,
   onSuccess,
 }) => {
+  const [step, setStep] = useState<"form" | "confirm" | "ticket">("form");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [orderType, setOrderType] = useState<"table" | "takeaway">("table");
   const [tableNumber, setTableNumber] = useState("");
   const [notes, setNotes] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"now" | "cash_at_bar" | "terminal_at_table">("terminal_at_table");
+  const [cashAmount, setCashAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [paymentCode, setPaymentCode] = useState<string>("");
 
   const subtotal = cart.reduce(
     (sum, item) => sum + item.itemTotal * item.quantity,
     0
   );
-  const tax = subtotal * 0.05; // 5% tax
-  const total = subtotal + tax;
+  const total = subtotal;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const isPhoneRequired = orderType !== "table";
+
+  // Generate a unique 4-digit payment code for the day (from database)
+  const generatePaymentCode = async (restaurantId: string): Promise<string> => {
+    try {
+      const { data, error } = await supabase.rpc('generate_unique_daily_payment_code', {
+        p_restaurant_id: restaurantId
+      });
+
+      if (error) {
+        console.error('Error generating payment code:', error);
+        // Fallback to random code if database function fails
+        return Math.floor(1000 + Math.random() * 9000).toString();
+      }
+
+      return data as string;
+    } catch (err) {
+      console.error('Error calling generate_unique_daily_payment_code:', err);
+      // Fallback to random code
+      return Math.floor(1000 + Math.random() * 9000).toString();
+    }
+  };
+
+  const handleValidateForm = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     if (!customerName.trim()) {
-      setError("Please enter your name");
+      setError("Ingresa tu nombre");
       return;
     }
 
-    if (!isValidPhone(customerPhone)) {
-      setError("Please enter a valid 10-digit phone number");
+    if (isPhoneRequired && !isValidPhone(customerPhone)) {
+      setError("Ingresa un teléfono válido a 10 dígitos");
+      return;
+    }
+    if (customerPhone && !isValidPhone(customerPhone)) {
+      setError("Ingresa un teléfono válido a 10 dígitos");
       return;
     }
 
     if (orderType === "table" && !tableNumber.trim()) {
-      setError("Please enter table number");
+      setError("Ingresa el número de mesa");
       return;
     }
 
+    // Go to confirmation step
+    setStep("confirm");
+  };
+
+  const handleConfirmOrder = async () => {
     setLoading(true);
+    setError("");
 
-    const orderData = {
-      restaurant_id: restaurantId,
-      order_type: (orderType === "table" ? "qr" : "counter") as
-        | "qr"
-        | "counter",
-      table_number: orderType === "table" ? tableNumber : undefined,
-      customer_name: customerName,
-      customer_phone: customerPhone,
-      items: cart.map((item) => ({
-        menu_item_id: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        base_price: item.base_price,
-        selected_size: item.selectedSize,
-        selected_addons: item.selectedAddons,
-        item_total: item.itemTotal,
-        special_instructions: undefined,
-      })),
-      subtotal,
-      tax,
-      total,
-      customer_notes: notes,
-    };
+    try {
+      // Generate payment code if cash_at_bar
+      let generatedCode = "";
+      if (paymentMethod === "cash_at_bar") {
+        generatedCode = await generatePaymentCode(restaurantId);
+        setPaymentCode(generatedCode);
+      }
 
-    const { error: orderError } = await createOrder(orderData);
-    setLoading(false);
+      // Determine if order should be blocked based on payment method
+      let shouldBlock = false;
+      let initialStatus: "pending" | "preparing" = "pending";
 
-    if (!orderError) {
-      setSuccess(true);
-      setTimeout(() => {
-        onSuccess();
-        resetForm();
-      }, 2000);
-    } else {
-      setError(orderError?.message || "Failed to place order");
+      if (paymentMethod === "cash_at_bar") {
+        shouldBlock = true; // Always block for cash at bar
+        initialStatus = "pending";
+      } else if (paymentMethod === "terminal_at_table") {
+        // Check restaurant settings for terminal payment
+        const autoApprove = restaurant?.terminal_payment_auto_approve;
+        shouldBlock = !autoApprove;
+        initialStatus = autoApprove ? "preparing" : "pending";
+      }
+
+      const orderData = {
+        restaurant_id: restaurantId,
+        order_type: (orderType === "table" ? "qr" : "counter") as "qr" | "counter",
+        table_number: orderType === "table" ? tableNumber : undefined,
+        customer_name: customerName,
+        customer_phone: customerPhone || undefined,
+        items: cart.map((item) => ({
+          menu_item_id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          base_price: item.base_price,
+          selected_size: item.selectedSize,
+          selected_addons: item.selectedAddons,
+          item_total: item.itemTotal,
+        })),
+        subtotal,
+        tax: 0,
+        total,
+        customer_notes: notes,
+        payment_type: paymentMethod,
+        cash_payment_code: paymentMethod === "cash_at_bar" ? generatedCode : undefined,
+        cash_amount_brought: paymentMethod === "cash_at_bar" ? parseFloat(cashAmount) : undefined,
+        is_blocked: shouldBlock,
+        status: initialStatus,
+        payment_status: "pending",
+      };
+
+      const { data, error: orderError } = await createOrder(orderData);
+
+      if (!orderError && data) {
+        setPlacedOrder(data);
+        setStep("ticket");
+        // Don't call onSuccess() here - wait until user closes the ticket modal
+      } else {
+        setError(orderError?.message || "Error al crear el pedido");
+      }
+    } catch (error: any) {
+      setError(error.message || "Error al procesar el pedido");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const resetForm = () => {
+  const resetAndClose = () => {
+    // Clear all form state
     setCustomerName("");
     setCustomerPhone("");
     setTableNumber("");
     setNotes("");
     setOrderType("table");
-    setSuccess(false);
+    setPaymentMethod("terminal_at_table");
+    setCashAmount("");
+    setPaymentCode("");
+    setStep("form");
+    setPlacedOrder(null);
+    setCopied(false);
+    setError("");
+
+    // Call onSuccess to clear cart and close modal
+    onSuccess();
+    onClose();
   };
 
-  if (success) {
+  const handleCopyTicket = async () => {
+    if (!placedOrder) return;
+    const lines = [
+      `Pedido #${placedOrder.order_number}`,
+      placedOrder.table_number
+        ? `Mesa: ${placedOrder.table_number}`
+        : "Para llevar",
+      formatDateTime(placedOrder.created_at),
+      "",
+      ...placedOrder.items.map(
+        (item) =>
+          `${item.quantity}x ${item.name} - ${formatCurrency(
+            item.item_total * item.quantity
+          )}`
+      ),
+      "",
+      `Total: ${formatCurrency(placedOrder.total)}`,
+    ];
+    const success = await copyToClipboard(lines.join("\n"));
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Ticket / Receipt step
+  if (step === "ticket" && placedOrder) {
+    const orderTotal = placedOrder.total;
+    const cashBrought = placedOrder.cash_amount_brought || parseFloat(cashAmount) || 0;
+    const change = placedOrder.payment_type === "cash_at_bar" ? cashBrought - orderTotal : 0;
+
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Order Placed!" size="md">
-        <div className="text-center py-8">
-          <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
-          <h3 className="text-2xl font-bold text-text mb-2">
-            Order Successful!
-          </h3>
-          <p className="text-text-secondary mb-6">
-            Your order has been placed successfully. The restaurant will prepare
-            it shortly.
-          </p>
-          <Button onClick={onClose} fullWidth>
-            Close
+      <Modal
+        isOpen={isOpen}
+        onClose={resetAndClose}
+        title="¡Pedido Confirmado!"
+        size="md"
+      >
+        <div className="space-y-6">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/10 mb-4">
+              <CheckCircle className="w-10 h-10 text-success" />
+            </div>
+            <p className="text-text-secondary">
+              {placedOrder.payment_type === "cash_at_bar"
+                ? "Tu pedido ha sido recibido. Ve a la barra con tu código para pagar."
+                : placedOrder.payment_type === "terminal_at_table"
+                ? placedOrder.is_blocked
+                  ? "Tu pedido ha sido recibido. Un mesero llevará la terminal a tu mesa para confirmar el pago y enviar tu orden a cocina."
+                  : "Tu pedido está siendo preparado. Un mesero llevará la terminal con tu orden lista."
+                : "Tu pedido ha sido recibido. El restaurante lo preparará en breve."}
+            </p>
+          </div>
+
+          {/* Payment Code for Cash at Bar */}
+          {placedOrder.payment_type === "cash_at_bar" && placedOrder.cash_payment_code && (
+            <div className="bg-green-50 border-4 border-green-600 rounded-xl p-6 text-center shadow-lg">
+              <Banknote className="w-10 h-10 text-green-600 mx-auto mb-3" />
+              <p className="text-base font-semibold text-gray-700 mb-2">Tu código de pago es:</p>
+              <p className="text-6xl font-black text-green-600 tracking-widest mb-4">{placedOrder.cash_payment_code}</p>
+              <p className="text-sm font-medium text-gray-600 mb-4">
+                Muestra este código al personal en la barra
+              </p>
+              <div className="mt-4 space-y-2 text-base bg-white rounded-lg p-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 font-medium">Total a pagar:</span>
+                  <span className="font-bold text-gray-900">{formatCurrency(orderTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 font-medium">Traes:</span>
+                  <span className="font-bold text-gray-900">{formatCurrency(cashBrought)}</span>
+                </div>
+                <div className="flex justify-between border-t-2 border-gray-200 pt-2">
+                  <span className="text-gray-600 font-medium">Tu cambio:</span>
+                  <span className="font-black text-green-600 text-lg">{formatCurrency(change)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ticket */}
+          <div className="bg-bg-subtle rounded-lg p-4 space-y-3 border border-dashed border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Receipt className="w-5 h-5 text-accent" />
+                <h4 className="font-bold text-text">
+                  Pedido #{placedOrder.order_number}
+                </h4>
+              </div>
+              <span className="text-xs text-text-secondary">
+                {formatDateTime(placedOrder.created_at)}
+              </span>
+            </div>
+            <p className="text-sm text-text-secondary">
+              {placedOrder.table_number
+                ? `Mesa: ${placedOrder.table_number}`
+                : "Para llevar"}
+            </p>
+
+            <div className="border-t border-border pt-3 space-y-2">
+              {placedOrder.items.map((item, index) => (
+                <div key={index} className="flex justify-between text-sm">
+                  <span className="text-text-secondary">
+                    {item.quantity}x {item.name}
+                    {item.selected_size && ` (${item.selected_size.name})`}
+                  </span>
+                  <span className="text-text">
+                    {formatCurrency(item.item_total * item.quantity)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-border pt-2 flex justify-between text-lg font-bold text-text">
+              <span>Total</span>
+              <span>{formatCurrency(placedOrder.total)}</span>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            fullWidth
+            icon={<Copy className="w-4 h-4" />}
+            onClick={handleCopyTicket}
+          >
+            {copied ? "¡Copiado!" : "Copiar Ticket"}
+          </Button>
+
+          <Button onClick={resetAndClose} fullWidth>
+            Listo
           </Button>
         </div>
       </Modal>
     );
   }
 
+  // Confirmation step
+  if (step === "confirm") {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={resetAndClose}
+        title="Confirma tu pedido"
+        size="lg"
+      >
+        <div className="space-y-6">
+          {error && <Alert type="error" message={error} />}
+
+          <Alert
+            type="warning"
+            message="Revisa bien tu pedido antes de confirmar. Una vez enviado, el restaurante empezará a prepararlo."
+          />
+
+          {paymentMethod === "cash_at_bar" && (
+            <Alert
+              type="info"
+              message="Si el código no es proporcionado en la barra en dos horas el pedido será cancelado automáticamente."
+            />
+          )}
+
+          <div className="bg-bg-subtle rounded-lg p-4 space-y-2 text-sm">
+            <p className="text-text">
+              <strong>Nombre:</strong> {customerName}
+            </p>
+            {customerPhone && (
+              <p className="text-text">
+                <strong>Teléfono:</strong> {customerPhone}
+              </p>
+            )}
+            <p className="text-text">
+              <strong>Tipo:</strong>{" "}
+              {orderType === "table"
+                ? `Mesa ${tableNumber}`
+                : "Para llevar"}
+            </p>
+            <p className="text-text">
+              <strong>Pago:</strong>{" "}
+              {paymentMethod === "cash_at_bar" ? "Efectivo en barra" : "Pagar ahora"}
+            </p>
+            {paymentMethod === "cash_at_bar" && (
+              <p className="text-text">
+                <strong>Traerás:</strong> {formatCurrency(parseFloat(cashAmount))}
+              </p>
+            )}
+            {notes && (
+              <p className="text-text">
+                <strong>Notas:</strong> {notes}
+              </p>
+            )}
+          </div>
+
+          <div className="bg-bg-subtle rounded-lg p-4 space-y-2">
+            <h4 className="font-semibold text-text mb-2">
+              Resumen del pedido
+            </h4>
+            {cart.map((item, index) => (
+              <div key={index} className="flex justify-between text-sm">
+                <span className="text-text-secondary">
+                  {item.quantity}x {item.name}
+                  {item.selectedSize && ` (${item.selectedSize.name})`}
+                </span>
+                <span className="text-text">
+                  {formatCurrency(item.itemTotal * item.quantity)}
+                </span>
+              </div>
+            ))}
+            <div className="border-t border-border pt-2 mt-2 flex justify-between text-xl font-bold text-text">
+              <span>Total</span>
+              <span>{formatCurrency(total)}</span>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStep("form")}
+              fullWidth
+            >
+              Editar
+            </Button>
+            <Button
+              onClick={handleConfirmOrder}
+              loading={loading}
+              fullWidth
+            >
+              Confirmar Pedido
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  // Form step
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Checkout" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <Modal isOpen={isOpen} onClose={resetAndClose} title="Datos del pedido" size="lg">
+      <form onSubmit={handleValidateForm} className="space-y-6">
         {error && <Alert type="error" message={error} />}
 
         {/* Order Type */}
         <div>
-          <label className="label mb-3">Order Type</label>
+          <label className="label mb-3">Tipo de pedido</label>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
@@ -786,7 +1090,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   : "border-border hover:border-accent/50"
               }`}
             >
-              Dine In (Table)
+              Comer aquí (Mesa)
             </button>
             <button
               type="button"
@@ -797,7 +1101,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   : "border-border hover:border-accent/50"
               }`}
             >
-              Takeaway / Parcel
+              Para llevar
             </button>
           </div>
         </div>
@@ -805,48 +1109,119 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         {/* Table Number (only for table orders) */}
         {orderType === "table" && (
           <Input
-            label="Table Number"
+            label="Número de mesa"
             value={tableNumber}
             onChange={(e) => setTableNumber(e.target.value)}
-            placeholder="Enter your table number"
+            placeholder="Ingresa el número de tu mesa"
             required
           />
         )}
 
         {/* Customer Details */}
         <Input
-          label="Your Name"
+          label="Tu nombre"
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
-          placeholder="Enter your name"
+          placeholder="Ingresa tu nombre"
           required
         />
 
         <Input
-          label="Phone Number"
+          label={`Teléfono${isPhoneRequired ? "" : " (Opcional)"}`}
           type="tel"
           value={customerPhone}
           onChange={(e) => setCustomerPhone(e.target.value)}
-          placeholder="10-digit mobile number"
-          required
-          helperText="We'll use this to contact you about your order"
+          placeholder="Celular a 10 dígitos"
+          required={isPhoneRequired}
+          helperText={
+            isPhoneRequired
+              ? "Lo usaremos para avisarte sobre tu pedido"
+              : "Opcional para pedidos en mesa"
+          }
         />
 
         {/* Special Instructions */}
         <div>
-          <label className="label mb-2">Special Instructions (Optional)</label>
+          <label className="label mb-2">Instrucciones especiales (Opcional)</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Any special requests for your order..."
+            placeholder="Alguna petición especial para tu pedido..."
             rows={3}
             className="input-field"
           />
         </div>
 
+        {/* Payment Method */}
+        <div>
+          <label className="label mb-3">Método de pago</label>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("terminal_at_table")}
+              className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
+                paymentMethod === "terminal_at_table"
+                  ? "border-blue-600 bg-blue-50 text-blue-600"
+                  : "border-border hover:border-blue-400"
+              }`}
+            >
+              <Smartphone className="w-5 h-5" />
+              <span className="text-xs">Terminal a la mesa</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("cash_at_bar")}
+              className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
+                paymentMethod === "cash_at_bar"
+                  ? "border-green-600 bg-green-50 text-green-600"
+                  : "border-border hover:border-green-400"
+              }`}
+            >
+              <Banknote className="w-5 h-5" />
+              <span className="text-xs">Efectivo en barra</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("now")}
+              className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
+                paymentMethod === "now"
+                  ? "border-purple-600 bg-purple-50 text-purple-600"
+                  : "border-border hover:border-purple-400"
+              }`}
+            >
+              <CreditCard className="w-5 h-5" />
+              <span className="text-xs">Pagar ahora</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Cash Amount (only for cash at bar) */}
+        {paymentMethod === "cash_at_bar" && (
+          <div>
+            <Input
+              label="¿Cuánto dinero traerás?"
+              type="number"
+              step="0.01"
+              min={total}
+              value={cashAmount}
+              onChange={(e) => setCashAmount(e.target.value)}
+              placeholder={`Mínimo ${formatCurrency(total)}`}
+              required
+              helperText="Ingresa el monto en efectivo que traerás para calcular tu cambio"
+            />
+            {cashAmount && parseFloat(cashAmount) >= total && (
+              <div className="mt-2 p-3 bg-success/10 border border-success/20 rounded-lg">
+                <p className="text-sm text-success font-medium">
+                  Tu cambio será: {formatCurrency(parseFloat(cashAmount) - total)}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Order Summary */}
         <div className="bg-bg-subtle rounded-lg p-4 space-y-2">
-          <h4 className="font-semibold text-text mb-3">Order Summary</h4>
+          <h4 className="font-semibold text-text mb-3">Resumen del pedido</h4>
           {cart.map((item, index) => (
             <div key={index} className="flex justify-between text-sm">
               <span className="text-text-secondary">
@@ -858,16 +1233,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </span>
             </div>
           ))}
-          <div className="border-t border-border pt-2 mt-2 space-y-1">
-            <div className="flex justify-between text-text-secondary">
-              <span>Subtotal</span>
-              <span>{formatCurrency(subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-text-secondary">
-              <span>Tax (5%)</span>
-              <span>{formatCurrency(tax)}</span>
-            </div>
-            <div className="flex justify-between text-xl font-bold text-text pt-2 border-t border-border">
+          <div className="border-t border-border pt-2 mt-2">
+            <div className="flex justify-between text-xl font-bold text-text">
               <span>Total</span>
               <span>{formatCurrency(total)}</span>
             </div>
@@ -876,11 +1243,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         {/* Actions */}
         <div className="flex gap-3">
-          <Button type="button" variant="outline" onClick={onClose} fullWidth>
-            Cancel
+          <Button type="button" variant="outline" onClick={resetAndClose} fullWidth>
+            Cancelar
           </Button>
-          <Button type="submit" loading={loading} fullWidth>
-            Place Order
+          <Button type="submit" fullWidth>
+            Revisar Pedido
           </Button>
         </div>
       </form>

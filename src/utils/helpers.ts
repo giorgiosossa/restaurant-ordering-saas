@@ -1,13 +1,14 @@
 import { APP_CONFIG } from "../config/config";
 
 /**
- * Format currency value
+ * Format currency value (Mexican Pesos)
  */
 export const formatCurrency = (amount: number | undefined | null): string => {
-  if (amount === undefined || amount === null || isNaN(amount)) {
-    return `${APP_CONFIG.defaultCurrency}0.00`;
-  }
-  return `${APP_CONFIG.defaultCurrency}${amount.toFixed(2)}`;
+  const value = amount === undefined || amount === null || isNaN(amount) ? 0 : amount;
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: APP_CONFIG.currencyCode,
+  }).format(value);
 };
 
 /**
@@ -45,14 +46,11 @@ export const generateTempPassword = (): string => {
 };
 
 /**
- * Calculate order totals
+ * Calculate order totals (no tax - total is simply the sum of item totals)
  */
 export const calculateOrderTotals = (items: any[]) => {
   const subtotal = items.reduce((sum, item) => sum + item.item_total, 0);
-  const tax = subtotal * APP_CONFIG.taxRate;
-  const total = subtotal + tax;
-
-  return { subtotal, tax, total };
+  return { subtotal, tax: 0, total: subtotal };
 };
 
 /**
@@ -60,7 +58,7 @@ export const calculateOrderTotals = (items: any[]) => {
  */
 export const formatDateTime = (dateString: string): string => {
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -72,7 +70,7 @@ export const formatDateTime = (dateString: string): string => {
 
 export const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -81,7 +79,7 @@ export const formatDate = (dateString: string): string => {
 
 export const formatTime = (dateString: string): string => {
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat("es-MX", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
@@ -97,10 +95,10 @@ export const isValidEmail = (email: string): boolean => {
 };
 
 /**
- * Validate phone number (Indian format)
+ * Validate phone number (Mexican format - 10 digits)
  */
 export const isValidPhone = (phone: string): boolean => {
-  const re = /^[6-9]\d{9}$/;
+  const re = /^\d{10}$/;
   return re.test(phone.replace(/[\s\-()]/g, ""));
 };
 

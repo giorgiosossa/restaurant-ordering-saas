@@ -45,6 +45,7 @@ export interface Restaurant {
   subscription_plan: "free_trial" | "starter" | "pro" | "enterprise";
   status: "active" | "blocked" | "trial";
   is_active: boolean;
+  terminal_payment_auto_approve?: boolean;
   internal_notes?: string;
   block_reason?: string;
   trial_ends_at?: string;
@@ -100,6 +101,11 @@ export interface Order {
   payment_method?: string;
   payment_status?: string;
   payment_transaction_id?: string;
+  payment_type?: "now" | "cash_at_bar" | "terminal_at_table";
+  cash_payment_code?: string;
+  cash_amount_brought?: number;
+  is_blocked?: boolean;
+  payment_verified_at?: string;
   customer_notes?: string;
   internal_notes?: string;
   accepted_at?: string;

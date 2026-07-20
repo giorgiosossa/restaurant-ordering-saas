@@ -4,6 +4,16 @@ import { Card, Badge, Loading } from "../../components/ui";
 import { getRestaurantStats } from "../../services/restaurantService";
 import { formatCurrency } from "../../utils/helpers";
 
+const statusLabels: Record<string, string> = {
+  pending: "Pendiente",
+  accepted: "Aceptado",
+  preparing: "Preparando",
+  ready: "Listo",
+  completed: "Completado",
+  cancelled: "Cancelado",
+  rejected: "Rechazado",
+};
+
 const RestaurantHome: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -22,33 +32,33 @@ const RestaurantHome: React.FC = () => {
   };
 
   if (loading) {
-    return <Loading text="Loading dashboard..." />;
+    return <Loading text="Cargando panel..." />;
   }
 
   const statCards = [
     {
-      title: "Pending Orders",
+      title: "Pedidos Pendientes",
       value: stats?.pendingOrders || 0,
       icon: Clock,
       color: "text-warning",
       bgColor: "bg-warning/10",
     },
     {
-      title: "Today's Orders",
+      title: "Pedidos de Hoy",
       value: stats?.todayOrders || 0,
       icon: ShoppingBag,
       color: "text-accent",
       bgColor: "bg-accent/10",
     },
     {
-      title: "Today's Revenue",
+      title: "Ingresos de Hoy",
       value: formatCurrency(stats?.todayRevenue || 0),
       icon: DollarSign,
       color: "text-success",
       bgColor: "bg-success/10",
     },
     {
-      title: "Menu Items",
+      title: "Platillos en Menú",
       value: stats?.totalMenuItems || 0,
       icon: UtensilsCrossed,
       color: "text-accent-secondary",
@@ -60,9 +70,9 @@ const RestaurantHome: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-text mb-2">Dashboard</h2>
+        <h2 className="text-2xl font-bold text-text mb-2">Panel Principal</h2>
         <p className="text-text-secondary">
-          Welcome back! Here's your restaurant overview
+          ¡Bienvenido de nuevo! Aquí está el resumen de tu restaurante
         </p>
       </div>
 
@@ -85,16 +95,16 @@ const RestaurantHome: React.FC = () => {
 
       {/* Quick Actions */}
       <Card>
-        <h3 className="text-lg font-semibold text-text mb-4">Quick Actions</h3>
+        <h3 className="text-lg font-semibold text-text mb-4">Accesos Rápidos</h3>
         <div className="grid sm:grid-cols-3 gap-4">
           <a
             href="/restaurant/orders"
             className="p-4 border border-border rounded-lg hover:border-accent hover:bg-accent/5 transition-colors text-center"
           >
             <ShoppingBag className="w-8 h-8 text-accent mx-auto mb-2" />
-            <p className="font-medium text-text">View Orders</p>
+            <p className="font-medium text-text">Ver Pedidos</p>
             <p className="text-sm text-text-secondary">
-              Manage incoming orders
+              Gestiona los pedidos entrantes
             </p>
           </a>
           <a
@@ -102,16 +112,16 @@ const RestaurantHome: React.FC = () => {
             className="p-4 border border-border rounded-lg hover:border-accent hover:bg-accent/5 transition-colors text-center"
           >
             <UtensilsCrossed className="w-8 h-8 text-accent mx-auto mb-2" />
-            <p className="font-medium text-text">Manage Menu</p>
-            <p className="text-sm text-text-secondary">Update items & prices</p>
+            <p className="font-medium text-text">Gestionar Menú</p>
+            <p className="text-sm text-text-secondary">Actualiza platillos y precios</p>
           </a>
           <a
             href="/restaurant/reports"
             className="p-4 border border-border rounded-lg hover:border-accent hover:bg-accent/5 transition-colors text-center"
           >
             <DollarSign className="w-8 h-8 text-accent mx-auto mb-2" />
-            <p className="font-medium text-text">View Reports</p>
-            <p className="text-sm text-text-secondary">Sales & analytics</p>
+            <p className="font-medium text-text">Ver Reportes</p>
+            <p className="text-sm text-text-secondary">Ventas y analítica</p>
           </a>
         </div>
       </Card>
@@ -120,12 +130,12 @@ const RestaurantHome: React.FC = () => {
       {stats?.recentOrders && stats.recentOrders.length > 0 && (
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-text">Recent Orders</h3>
+            <h3 className="text-lg font-semibold text-text">Pedidos Recientes</h3>
             <a
               href="/restaurant/orders"
               className="text-accent hover:underline text-sm"
             >
-              View All
+              Ver Todos
             </a>
           </div>
           <div className="space-y-3">
@@ -136,10 +146,10 @@ const RestaurantHome: React.FC = () => {
               >
                 <div className="flex-1">
                   <p className="font-medium text-text">
-                    Order #{order.order_number}
+                    Pedido #{order.order_number}
                   </p>
                   <p className="text-sm text-text-secondary">
-                    {order.order_type} • {order.items?.length || 0} items
+                    {order.table_number ? `Mesa ${order.table_number}` : "Para llevar"} • {order.items?.length || 0} platillos
                   </p>
                 </div>
                 <div className="text-right">
@@ -155,7 +165,7 @@ const RestaurantHome: React.FC = () => {
                         : "neutral"
                     }
                   >
-                    {order.status}
+                    {statusLabels[order.status] || order.status}
                   </Badge>
                 </div>
               </div>

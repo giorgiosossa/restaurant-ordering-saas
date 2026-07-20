@@ -66,7 +66,7 @@ const Reports: React.FC = () => {
 
       // Calculate metrics
       const totalRevenue =
-        orders?.reduce((sum, order) => sum + order.total_amount, 0) || 0;
+        orders?.reduce((sum, order) => sum + order.total, 0) || 0;
       const totalOrders = orders?.length || 0;
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
@@ -90,14 +90,14 @@ const Reports: React.FC = () => {
       // Daily revenue
       const dailyData: Record<string, { revenue: number; orders: number }> = {};
       orders?.forEach((order) => {
-        const date = new Date(order.created_at).toLocaleDateString("en-US", {
+        const date = new Date(order.created_at).toLocaleDateString("es-MX", {
           month: "short",
           day: "numeric",
         });
         if (!dailyData[date]) {
           dailyData[date] = { revenue: 0, orders: 0 };
         }
-        dailyData[date].revenue += order.total_amount;
+        dailyData[date].revenue += order.total;
         dailyData[date].orders += 1;
       });
 
@@ -135,12 +135,12 @@ const Reports: React.FC = () => {
     if (!reportData) return;
 
     const csvContent = [
-      ["Metric", "Value"],
-      ["Total Revenue", formatCurrency(reportData.totalRevenue)],
-      ["Total Orders", reportData.totalOrders.toString()],
-      ["Average Order Value", formatCurrency(reportData.avgOrderValue)],
+      ["Métrica", "Valor"],
+      ["Ingresos Totales", formatCurrency(reportData.totalRevenue)],
+      ["Total de Pedidos", reportData.totalOrders.toString()],
+      ["Valor Promedio de Pedido", formatCurrency(reportData.avgOrderValue)],
       [""],
-      ["Top Items", "Quantity", "Revenue"],
+      ["Platillos Más Vendidos", "Cantidad", "Ingresos"],
       ...reportData.topItems.map((item) => [
         item.name,
         item.count.toString(),
@@ -154,17 +154,17 @@ const Reports: React.FC = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `report-${dateRange}-days.csv`;
+    a.download = `reporte-${dateRange}-dias.csv`;
     a.click();
   };
 
   if (loading) {
-    return <Loading text="Loading reports..." />;
+    return <Loading text="Cargando reportes..." />;
   }
 
   if (!reportData) {
     return (
-      <div className="text-center text-text-secondary">No data available</div>
+      <div className="text-center text-text-secondary">No hay datos disponibles</div>
     );
   }
 
@@ -176,10 +176,10 @@ const Reports: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-text mb-2">
-            Reports & Analytics
+            Reportes y Analítica
           </h2>
           <p className="text-text-secondary">
-            Track your sales performance and trends
+            Da seguimiento a tus ventas y tendencias
           </p>
         </div>
         <div className="flex gap-3">
@@ -188,16 +188,16 @@ const Reports: React.FC = () => {
             onChange={(e) => setDateRange(e.target.value as "7" | "30" | "90")}
             className="input"
           >
-            <option value="7">Last 7 Days</option>
-            <option value="30">Last 30 Days</option>
-            <option value="90">Last 90 Days</option>
+            <option value="7">Últimos 7 Días</option>
+            <option value="30">Últimos 30 Días</option>
+            <option value="90">Últimos 90 Días</option>
           </select>
           <Button
             icon={<Download className="w-5 h-5" />}
             onClick={exportReport}
             variant="outline"
           >
-            Export
+            Exportar
           </Button>
         </div>
       </div>
@@ -214,7 +214,7 @@ const Reports: React.FC = () => {
           <div className="text-2xl font-bold text-text mb-1">
             {formatCurrency(reportData.totalRevenue)}
           </div>
-          <p className="text-text-secondary text-sm">Total Revenue</p>
+          <p className="text-text-secondary text-sm">Ingresos Totales</p>
         </Card>
 
         <Card>
@@ -226,7 +226,7 @@ const Reports: React.FC = () => {
           <div className="text-2xl font-bold text-text mb-1">
             {reportData.totalOrders}
           </div>
-          <p className="text-text-secondary text-sm">Total Orders</p>
+          <p className="text-text-secondary text-sm">Total de Pedidos</p>
         </Card>
 
         <Card>
@@ -238,7 +238,7 @@ const Reports: React.FC = () => {
           <div className="text-2xl font-bold text-text mb-1">
             {formatCurrency(reportData.avgOrderValue)}
           </div>
-          <p className="text-text-secondary text-sm">Avg Order Value</p>
+          <p className="text-text-secondary text-sm">Valor Promedio de Pedido</p>
         </Card>
 
         <Card>
@@ -248,9 +248,9 @@ const Reports: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl font-bold text-text mb-1">
-            {dateRange} Days
+            {dateRange} Días
           </div>
-          <p className="text-text-secondary text-sm">Report Period</p>
+          <p className="text-text-secondary text-sm">Periodo del Reporte</p>
         </Card>
       </div>
 
@@ -258,7 +258,7 @@ const Reports: React.FC = () => {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Revenue Trend */}
         <Card>
-          <h3 className="text-lg font-bold text-text mb-4">Revenue Trend</h3>
+          <h3 className="text-lg font-bold text-text mb-4">Tendencia de Ingresos</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={reportData.dailyRevenue}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -278,7 +278,7 @@ const Reports: React.FC = () => {
                 dataKey="revenue"
                 stroke="#FF6B6B"
                 strokeWidth={2}
-                name="Revenue"
+                name="Ingresos"
               />
             </LineChart>
           </ResponsiveContainer>
@@ -287,7 +287,7 @@ const Reports: React.FC = () => {
         {/* Order Type Distribution */}
         <Card>
           <h3 className="text-lg font-bold text-text mb-4">
-            Order Type Distribution
+            Distribución por Tipo de Pedido
           </h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -319,13 +319,13 @@ const Reports: React.FC = () => {
       {/* Top Items */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-text">Top Selling Items</h3>
+          <h3 className="text-lg font-bold text-text">Platillos Más Vendidos</h3>
           <Package className="w-5 h-5 text-accent" />
         </div>
 
         {reportData.topItems.length === 0 ? (
           <p className="text-text-secondary text-center py-8">
-            No items sold yet
+            Aún no hay platillos vendidos
           </p>
         ) : (
           <div className="space-y-3">
@@ -341,7 +341,7 @@ const Reports: React.FC = () => {
                   <div>
                     <div className="font-semibold text-text">{item.name}</div>
                     <div className="text-sm text-text-secondary">
-                      {item.count} orders
+                      {item.count} pedidos
                     </div>
                   </div>
                 </div>
@@ -349,7 +349,7 @@ const Reports: React.FC = () => {
                   <div className="text-lg font-bold text-success">
                     {formatCurrency(item.revenue)}
                   </div>
-                  <div className="text-xs text-text-secondary">Revenue</div>
+                  <div className="text-xs text-text-secondary">Ingresos</div>
                 </div>
               </div>
             ))}
@@ -359,7 +359,7 @@ const Reports: React.FC = () => {
 
       {/* Daily Orders Chart */}
       <Card>
-        <h3 className="text-lg font-bold text-text mb-4">Daily Orders</h3>
+        <h3 className="text-lg font-bold text-text mb-4">Pedidos por Día</h3>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={reportData.dailyRevenue}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -373,7 +373,7 @@ const Reports: React.FC = () => {
               }}
             />
             <Legend />
-            <Bar dataKey="orders" fill="#4ECDC4" name="Orders" />
+            <Bar dataKey="orders" fill="#4ECDC4" name="Pedidos" />
           </BarChart>
         </ResponsiveContainer>
       </Card>

@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase";
 import type { Order, MenuItem } from "../config/supabase";
+import { deductInventoryForOrder } from "./inventoryService";
 
 /**
  * Restaurant API Service
@@ -53,6 +54,8 @@ export const updateOrderStatus = async (
     transactionId?: string;
   }
 ) => {
+  console.log("📋 [ORDER] Updating order status:", { orderId, status, paymentData });
+
   const updateData: any = { status };
 
   if (paymentData) {
@@ -60,12 +63,37 @@ export const updateOrderStatus = async (
     updateData.payment_transaction_id = paymentData.transactionId;
   }
 
+  // If status is changing to "preparing", deduct inventory first
+  if (status === "preparing") {
+    console.log("🔄 [ORDER] Status is 'preparing' - triggering inventory deduction");
+    const deductionResult = await deductInventoryForOrder(orderId);
+
+    if (!deductionResult.success) {
+      console.error("❌ [ORDER] Inventory deduction failed:", deductionResult.message);
+
+      // Return error result with insufficient items info
+      return {
+        success: false,
+        error: deductionResult.message,
+        insufficient_items: deductionResult.insufficient_items,
+      };
+    }
+
+    console.log("✅ [ORDER] Inventory deduction successful, proceeding with status update");
+  }
+
   const { error } = await supabase
     .from("orders")
     .update(updateData)
     .eq("id", orderId);
 
-  return !error;
+  if (error) {
+    console.error("❌ [ORDER] Failed to update order status:", error);
+  } else {
+    console.log("✅ [ORDER] Order status updated successfully");
+  }
+
+  return { success: !error };
 };
 
 // Subscribe to menu items with real-time updates
@@ -108,11 +136,15 @@ export const subscribeToMenuItems = (
 
 // Create menu item
 export const createMenuItem = async (item: Partial<MenuItem>) => {
+  // Debug: Verifica si hay sesión antes de insertar
+  const { data: { session } } = await supabase.auth.getSession();
+  console.log("Sesión en el momento de crear:", session);
+
   const { error } = await supabase
-    .from("menu_items")
-    .insert([item])
-    .select()
-    .single();
+      .from("menu_items")
+      .insert([item])
+      .select()
+      .single();
 
   return !error;
 };

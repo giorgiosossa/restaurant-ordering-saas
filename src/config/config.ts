@@ -3,101 +3,101 @@
 // Get them from: https://app.supabase.com/project/_/settings/api
 
 export const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL || "YOUR_SUPABASE_URL";
+  import.meta.env.VITE_SUPABASE_URL || "https://rphwlsiwwxeqerakevvq.supabase.co";
 export const SUPABASE_ANON_KEY =
-  import.meta.env.VITE_SUPABASE_ANON_KEY || "YOUR_SUPABASE_ANON_KEY";
+  import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJwaHdsc2l3d3hlcWVyYWtldnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5ODcwODUsImV4cCI6MjA5ODU2MzA4NX0.qqbjxXx3bv7z1WNjOHrWmrMfqnhYLptsW0gb4VXl2cY";
 
 // Application Configuration
 export const APP_CONFIG = {
   appName: "FoodOrder",
-  defaultCurrency: "₹",
-  taxRate: 0.05, // 5% GST
+  defaultCurrency: "$",
+  currencyCode: "MXN",
   orderPrefix: "ORD",
 
   // Subscription plans
   plans: {
     free_trial: {
-      name: "Free Trial",
+      name: "Prueba Gratis",
       price: 0,
-      duration: "14 days",
+      duration: "14 días",
       features: [
-        "Up to 50 orders/month",
-        "Basic menu management",
-        "QR ordering",
-        "Email support",
+        "Hasta 50 pedidos/mes",
+        "Gestión básica de menú",
+        "Pedidos por QR",
+        "Soporte por email",
       ],
     },
     starter: {
       name: "Starter",
       price: 299,
-      duration: "per month",
+      duration: "por mes",
       features: [
-        "Unlimited orders",
-        "Full menu management",
-        "QR ordering",
-        "Reports",
-        "WhatsApp support",
+        "Pedidos ilimitados",
+        "Gestión completa de menú",
+        "Pedidos por QR",
+        "Reportes",
+        "Soporte por WhatsApp",
       ],
     },
     pro: {
       name: "Pro",
       price: 599,
-      duration: "per month",
+      duration: "por mes",
       features: [
-        "Everything in Starter",
-        "Multiple locations",
-        "Advanced analytics",
-        "Custom branding",
-        "Priority support",
+        "Todo lo de Starter",
+        "Múltiples sucursales",
+        "Analítica avanzada",
+        "Marca personalizada",
+        "Soporte prioritario",
       ],
     },
   },
 
   // Restaurant types
   restaurantTypes: [
-    "Restaurant",
+    "Restaurante",
     "Food Truck",
-    "Cafe",
-    "Bakery",
-    "Cloud Kitchen",
-    "Fine Dining",
-    "Quick Service",
-    "Other",
+    "Cafetería",
+    "Panadería",
+    "Cocina Oculta",
+    "Alta Cocina",
+    "Comida Rápida",
+    "Otro",
   ],
 
   // Menu categories
   menuCategories: [
-    "Starters",
-    "Main Course",
-    "Breakfast",
-    "Lunch",
-    "Dinner",
-    "Beverages",
-    "Desserts",
-    "Snacks",
-    "Other",
+    "Entradas",
+    "Platos Fuertes",
+    "Desayuno",
+    "Comida",
+    "Cena",
+    "Bebidas",
+    "Postres",
+    "Antojitos",
+    "Otro",
   ],
 
   // Order statuses
   orderStatuses: {
-    pending: { label: "Pending", color: "warning" },
-    accepted: { label: "Accepted", color: "accent-secondary" },
-    preparing: { label: "Preparing", color: "accent-secondary" },
-    ready: { label: "Ready", color: "success" },
-    completed: { label: "Completed", color: "success" },
-    cancelled: { label: "Cancelled", color: "error" },
-    rejected: { label: "Rejected", color: "error" },
+    pending: { label: "Pendiente", color: "warning" },
+    accepted: { label: "Aceptado", color: "accent-secondary" },
+    preparing: { label: "Preparando", color: "accent-secondary" },
+    ready: { label: "Listo", color: "success" },
+    completed: { label: "Completado", color: "success" },
+    cancelled: { label: "Cancelado", color: "error" },
+    rejected: { label: "Rechazado", color: "error" },
   },
 
   // Payment methods
-  paymentMethods: ["Cash", "UPI", "Card", "Other"],
+  paymentMethods: ["Efectivo", "Transferencia", "Tarjeta", "Otro"],
 
   // Registration sources
   heardFromOptions: [
-    "Google Search",
-    "Social Media",
-    "Friend/Referral",
-    "Advertisement",
-    "Other",
+    "Búsqueda en Google",
+    "Redes Sociales",
+    "Recomendación",
+    "Publicidad",
+    "Otro",
   ],
 };

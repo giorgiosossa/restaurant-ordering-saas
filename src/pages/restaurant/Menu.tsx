@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, Eye, EyeOff, Search, Package } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, EyeOff, Search, Package, ChefHat } from "lucide-react";
 import {
   Card,
   Button,
@@ -17,7 +17,14 @@ import {
   deleteMenuItem,
   toggleMenuItemAvailability,
 } from "../../services/restaurantService";
-import type { MenuItem } from "../../config/supabase";
+import {
+  getMenuItemIngredients,
+  getInventoryItems,
+  addIngredientToMenuItem,
+  updateMenuItemIngredient,
+  removeIngredientFromMenuItem,
+} from "../../services/inventoryService";
+import type { MenuItem, InventoryItem, MenuItemIngredientWithDetails } from "../../config/supabase";
 import { formatCurrency } from "../../utils/helpers";
 
 const Menu: React.FC = () => {
@@ -29,6 +36,7 @@ const Menu: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showIngredientsModal, setShowIngredientsModal] = useState(false);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -50,11 +58,16 @@ const Menu: React.FC = () => {
   ];
 
   const filteredItems = menuItems.filter((item) => {
-    const matchesSearch = item.name
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+    // Search by name, category, OR description
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch =
+      item.name.toLowerCase().includes(searchLower) ||
+      (item.category && item.category.toLowerCase().includes(searchLower)) ||
+      (item.description && item.description.toLowerCase().includes(searchLower));
+
     const matchesCategory =
       categoryFilter === "all" || item.category === categoryFilter;
+
     return matchesSearch && matchesCategory;
   });
 
@@ -72,8 +85,13 @@ const Menu: React.FC = () => {
     setShowDeleteModal(true);
   };
 
+  const handleManageIngredients = (item: MenuItem) => {
+    setSelectedItem(item);
+    setShowIngredientsModal(true);
+  };
+
   if (loading) {
-    return <Loading text="Loading menu..." />;
+    return <Loading text="Cargando menú..." />;
   }
 
   return (
@@ -81,16 +99,16 @@ const Menu: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text mb-2">Menu Management</h2>
+          <h2 className="text-2xl font-bold text-text mb-2">Gestión de Menú</h2>
           <p className="text-text-secondary">
-            Manage your menu items and availability
+            Administra tus platillos y su disponibilidad
           </p>
         </div>
         <Button
           icon={<Plus className="w-5 h-5" />}
           onClick={() => setShowAddModal(true)}
         >
-          Add Item
+          Agregar Platillo
         </Button>
       </div>
 
@@ -98,7 +116,7 @@ const Menu: React.FC = () => {
       <div className="flex items-center space-x-2 text-sm text-success">
         <div className="w-2 h-2 bg-success rounded-full animate-pulse" />
         <span>
-          Live updates • Availability changes update customers in real-time
+          Actualizaciones en vivo • Los cambios de disponibilidad se reflejan al instante
         </span>
       </div>
 
@@ -106,7 +124,7 @@ const Menu: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
           <Input
-            placeholder="Search menu items..."
+            placeholder="Buscar por nombre, categoría o descripción..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             icon={<Search className="w-5 h-5" />}
@@ -119,145 +137,153 @@ const Menu: React.FC = () => {
               onClick={() => setCategoryFilter(category || "all")}
               className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
                 categoryFilter === category
-                  ? "bg-accent text-white"
-                  : "bg-white border border-border text-text-secondary hover:bg-bg-subtle"
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-surface border border-border text-text-secondary hover:bg-bg-subtle"
               }`}
             >
-              {category === "all" ? "All Items" : category}
+              {category === "all" ? "Todos" : category}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Menu Items */}
+      {/* Menu Items Grid */}
       {filteredItems.length === 0 ? (
         <Card className="text-center py-12">
           <Package className="w-16 h-16 text-text-secondary mx-auto mb-4 opacity-50" />
           <h3 className="text-xl font-semibold text-text mb-2">
-            No Menu Items Found
+            No Se Encontraron Platillos
           </h3>
           <p className="text-text-secondary mb-4">
             {searchTerm || categoryFilter !== "all"
-              ? "Try adjusting your filters"
-              : "Start by adding your first menu item"}
+              ? "Intenta ajustar tus filtros"
+              : "Comienza agregando tu primer platillo"}
           </p>
           <Button
             icon={<Plus className="w-5 h-5" />}
             onClick={() => setShowAddModal(true)}
           >
-            Add First Item
+            Agregar Primer Platillo
           </Button>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredItems.map((item) => (
             <Card
               key={item.id}
-              className={`hover:shadow-lg transition-shadow ${
+              className={`p-5 hover:shadow-lg transition-all duration-200 ${
                 !item.is_available ? "opacity-60" : ""
               }`}
             >
-              <div className="flex flex-col lg:flex-row gap-4">
-                {/* Image */}
-                {item.image_url && (
+              {/* Image */}
+              {item.image_url && (
+                <div className="mb-4 -mx-5 -mt-5">
                   <img
                     src={item.image_url}
                     alt={item.name}
-                    className="w-full lg:w-32 h-32 object-cover rounded-lg"
+                    className="w-full h-40 object-cover rounded-t-lg"
                   />
-                )}
+                </div>
+              )}
 
-                {/* Details */}
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="text-lg font-bold text-text">
-                          {item.name}
-                        </h3>
-                        <Badge
-                          variant={item.is_available ? "success" : "neutral"}
-                        >
-                          {item.is_available ? "Available" : "Unavailable"}
-                        </Badge>
-                      </div>
-                      {item.category && (
-                        <Badge variant="neutral" className="text-xs">
-                          {item.category}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {item.description && (
-                    <p className="text-text-secondary text-sm">
-                      {item.description}
-                    </p>
-                  )}
-
-                  <div className="flex flex-wrap items-center gap-4 text-sm">
-                    <div>
-                      <span className="text-text-secondary">Base Price: </span>
-                      <span className="text-accent font-semibold text-lg">
-                        {formatCurrency(item.base_price)}
-                      </span>
-                    </div>
-
-                    {item.sizes && item.sizes.length > 0 && (
-                      <div>
-                        <span className="text-text-secondary">Sizes: </span>
-                        <span className="text-text">
-                          {item.sizes.map((s) => s.name).join(", ")}
-                        </span>
-                      </div>
-                    )}
-
-                    {item.addons && item.addons.length > 0 && (
-                      <div>
-                        <span className="text-text-secondary">Add-ons: </span>
-                        <span className="text-text">
-                          {item.addons.length} available
-                        </span>
-                      </div>
-                    )}
-                  </div>
+              {/* Header */}
+              <div className="mb-4">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-lg font-bold text-text line-clamp-2 flex-1">
+                    {item.name}
+                  </h3>
+                  <ChefHat className="w-6 h-6 text-text-secondary opacity-30 flex-shrink-0 ml-2" />
                 </div>
 
-                {/* Actions */}
-                <div className="flex lg:flex-col gap-2 lg:min-w-[140px]">
-                  <Button
-                    size="sm"
-                    variant={item.is_available ? "outline" : "secondary"}
-                    icon={
-                      item.is_available ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )
-                    }
-                    onClick={() => handleToggleAvailability(item)}
-                    fullWidth
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  <Badge variant={item.is_available ? "success" : "neutral"}>
+                    {item.is_available ? "Disponible" : "No disponible"}
+                  </Badge>
+                  {item.category && (
+                    <Badge variant="neutral">{item.category}</Badge>
+                  )}
+                </div>
+
+                {item.description && (
+                  <p className="text-xs text-text-secondary line-clamp-2 mb-3">
+                    {item.description}
+                  </p>
+                )}
+
+                {/* Price Display */}
+                <div className="text-center py-3 bg-bg-subtle rounded-lg">
+                  <p className="text-2xl font-bold text-accent">
+                    {formatCurrency(item.base_price)}
+                  </p>
+                  <p className="text-xs text-text-secondary mt-1">Precio base</p>
+                </div>
+              </div>
+
+              {/* Details */}
+              <div className="mb-4 space-y-2 text-xs">
+                {item.sizes && item.sizes.length > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-secondary">Tamaños:</span>
+                    <span className="text-text font-medium">
+                      {item.sizes.length} opciones
+                    </span>
+                  </div>
+                )}
+                {item.addons && item.addons.length > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-secondary">Extras:</span>
+                    <span className="text-text font-medium">
+                      {item.addons.length} disponibles
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-3 border-t border-border">
+                <button
+                  onClick={() => handleToggleAvailability(item)}
+                  className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    item.is_available
+                      ? "bg-surface border border-border text-text-secondary hover:text-text hover:bg-bg-subtle"
+                      : "bg-accent text-accent-foreground hover:bg-accent/90"
+                  }`}
+                >
+                  {item.is_available ? (
+                    <>
+                      <EyeOff className="w-4 h-4" />
+                      Ocultar
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-4 h-4" />
+                      Mostrar
+                    </>
+                  )}
+                </button>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => handleManageIngredients(item)}
+                    className="flex items-center justify-center gap-1 px-2 py-2 bg-surface border border-border text-text-secondary hover:text-text hover:bg-bg-subtle rounded-lg text-xs font-medium transition-colors"
+                    title="Ingredientes"
                   >
-                    {item.is_available ? "Mark Unavailable" : "Mark Available"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    icon={<Edit className="w-4 h-4" />}
+                    <ChefHat className="w-4 h-4" />
+                  </button>
+                  <button
                     onClick={() => handleEdit(item)}
-                    fullWidth
+                    className="flex items-center justify-center gap-1 px-2 py-2 bg-surface border border-border text-text-secondary hover:text-text hover:bg-bg-subtle rounded-lg text-xs font-medium transition-colors"
+                    title="Editar"
                   >
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    icon={<Trash2 className="w-4 h-4" />}
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
                     onClick={() => handleDelete(item)}
-                    fullWidth
+                    className="flex items-center justify-center gap-1 px-2 py-2 bg-surface border border-border text-text-secondary hover:text-error hover:bg-bg-subtle rounded-lg text-xs font-medium transition-colors"
+                    title="Eliminar"
                   >
-                    Delete
-                  </Button>
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </Card>
@@ -280,6 +306,16 @@ const Menu: React.FC = () => {
           setSelectedItem(null);
         }}
         mode="edit"
+      />
+
+      {/* Ingredients Modal */}
+      <IngredientsModal
+        isOpen={showIngredientsModal}
+        item={selectedItem}
+        onClose={() => {
+          setShowIngredientsModal(false);
+          setSelectedItem(null);
+        }}
       />
 
       {/* Delete Modal */}
@@ -356,13 +392,13 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
     setError("");
 
     if (!formData.name || !formData.base_price) {
-      setError("Name and base price are required");
+      setError("El nombre y el precio base son obligatorios");
       return;
     }
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     if (!user.restaurant_id) {
-      setError("Restaurant ID not found");
+      setError("No se encontró el ID del restaurante");
       return;
     }
 
@@ -392,7 +428,11 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
     if (success) {
       onClose();
     } else {
-      setError(`Failed to ${mode} menu item`);
+      setError(
+        mode === "add"
+          ? "No se pudo agregar el platillo"
+          : "No se pudo actualizar el platillo"
+      );
     }
   };
 
@@ -440,42 +480,42 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === "add" ? "Add Menu Item" : "Edit Menu Item"}
+      title={mode === "add" ? "Agregar Platillo" : "Editar Platillo"}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && <Alert type="error" message={error} />}
 
         <Input
-          label="Item Name"
+          label="Nombre del platillo"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="e.g., Margherita Pizza"
+          placeholder="ej. Pizza Margherita"
           required
         />
 
         <Textarea
-          label="Description (Optional)"
+          label="Descripción (Opcional)"
           value={formData.description}
           onChange={(e) =>
             setFormData({ ...formData, description: e.target.value })
           }
-          placeholder="Describe your item..."
+          placeholder="Describe tu platillo..."
           rows={2}
         />
 
         <div className="grid sm:grid-cols-2 gap-4">
           <Input
-            label="Category"
+            label="Categoría"
             value={formData.category}
             onChange={(e) =>
               setFormData({ ...formData, category: e.target.value })
             }
-            placeholder="e.g., Pizza, Burgers"
+            placeholder="ej. Pizzas, Hamburguesas"
           />
 
           <Input
-            label="Base Price"
+            label="Precio base"
             type="number"
             step="0.01"
             value={formData.base_price}
@@ -488,17 +528,17 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
         </div>
 
         <Input
-          label="Image URL (Optional)"
+          label="URL de imagen (Opcional)"
           value={formData.image_url}
           onChange={(e) =>
             setFormData({ ...formData, image_url: e.target.value })
           }
-          placeholder="https://example.com/image.jpg"
+          placeholder="https://ejemplo.com/imagen.jpg"
         />
 
         {/* Sizes */}
         <div>
-          <label className="label mb-3">Sizes (Optional)</label>
+          <label className="label mb-3">Tamaños (Opcional)</label>
           <div className="space-y-2 mb-3">
             {formData.sizes.map((size, index) => (
               <div
@@ -520,12 +560,12 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
           </div>
           <div className="flex gap-2">
             <Input
-              placeholder="Size name"
+              placeholder="Nombre del tamaño"
               value={newSize.name}
               onChange={(e) => setNewSize({ ...newSize, name: e.target.value })}
             />
             <Input
-              placeholder="Price"
+              placeholder="Precio"
               type="number"
               step="0.01"
               value={newSize.price}
@@ -534,14 +574,14 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
               }
             />
             <Button type="button" onClick={addSize} variant="outline">
-              Add
+              Agregar
             </Button>
           </div>
         </div>
 
         {/* Add-ons */}
         <div>
-          <label className="label mb-3">Add-ons (Optional)</label>
+          <label className="label mb-3">Extras (Opcional)</label>
           <div className="space-y-2 mb-3">
             {formData.addons.map((addon, index) => (
               <div
@@ -563,14 +603,14 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
           </div>
           <div className="flex gap-2">
             <Input
-              placeholder="Add-on name"
+              placeholder="Nombre del extra"
               value={newAddon.name}
               onChange={(e) =>
                 setNewAddon({ ...newAddon, name: e.target.value })
               }
             />
             <Input
-              placeholder="Price"
+              placeholder="Precio"
               type="number"
               step="0.01"
               value={newAddon.price}
@@ -579,7 +619,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
               }
             />
             <Button type="button" onClick={addAddon} variant="outline">
-              Add
+              Agregar
             </Button>
           </div>
         </div>
@@ -594,18 +634,204 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
             }
             className="rounded border-border"
           />
-          <span className="text-text">Available for ordering</span>
+          <span className="text-text">Disponible para pedidos</span>
         </label>
 
         <div className="flex gap-3">
           <Button type="button" variant="outline" onClick={onClose} fullWidth>
-            Cancel
+            Cancelar
           </Button>
           <Button type="submit" loading={loading} fullWidth>
-            {mode === "add" ? "Add Item" : "Save Changes"}
+            {mode === "add" ? "Agregar Platillo" : "Guardar Cambios"}
           </Button>
         </div>
       </form>
+    </Modal>
+  );
+};
+
+// Ingredients Modal
+interface IngredientsModalProps {
+  isOpen: boolean;
+  item: MenuItem | null;
+  onClose: () => void;
+}
+
+const IngredientsModal: React.FC<IngredientsModalProps> = ({
+  isOpen,
+  item,
+  onClose,
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [ingredients, setIngredients] = useState<MenuItemIngredientWithDetails[]>([]);
+  const [availableInventory, setAvailableInventory] = useState<InventoryItem[]>([]);
+  const [selectedInventoryId, setSelectedInventoryId] = useState("");
+  const [quantity, setQuantity] = useState("");
+
+  useEffect(() => {
+    if (isOpen && item) {
+      loadData();
+    }
+  }, [isOpen, item]);
+
+  const loadData = async () => {
+    if (!item) return;
+
+    setLoading(true);
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+    // Load current ingredients
+    const currentIngredients = await getMenuItemIngredients(item.id);
+    setIngredients(currentIngredients as MenuItemIngredientWithDetails[]);
+
+    // Load available inventory items
+    const inventory = await getInventoryItems(user.restaurant_id);
+    setAvailableInventory(inventory.filter(inv => inv.is_active));
+    setLoading(false);
+  };
+
+  const handleAddIngredient = async () => {
+    if (!item || !selectedInventoryId || !quantity) return;
+
+    setLoading(true);
+    const success = await addIngredientToMenuItem(
+      item.id,
+      selectedInventoryId,
+      parseFloat(quantity)
+    );
+    setLoading(false);
+
+    if (success) {
+      setSelectedInventoryId("");
+      setQuantity("");
+      loadData();
+    }
+  };
+
+  const handleRemoveIngredient = async (ingredientId: string) => {
+    setLoading(true);
+    const success = await removeIngredientFromMenuItem(ingredientId);
+    setLoading(false);
+
+    if (success) {
+      loadData();
+    }
+  };
+
+  if (!item) return null;
+
+  const usedInventoryIds = ingredients.map(ing => ing.inventory_item_id);
+  const availableForSelection = availableInventory.filter(
+    inv => !usedInventoryIds.includes(inv.id)
+  );
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Ingredientes - ${item.name}`}
+      size="lg"
+    >
+      <div className="space-y-6">
+        {/* Current Ingredients */}
+        <div>
+          <label className="label mb-3">Ingredientes Actuales</label>
+          {ingredients.length === 0 ? (
+            <div className="text-center py-8 text-text-secondary">
+              <ChefHat className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No hay ingredientes asignados a este platillo</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {ingredients.map((ingredient) => (
+                <div
+                  key={ingredient.id}
+                  className="flex items-center justify-between p-3 bg-bg-subtle rounded-lg"
+                >
+                  <div className="flex-1">
+                    <p className="text-text font-medium">
+                      {ingredient.inventory_item?.name || "Ingrediente eliminado"}
+                    </p>
+                    <p className="text-text-secondary text-sm">
+                      {ingredient.quantity_used} {ingredient.inventory_item?.unit} por porción
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveIngredient(ingredient.id)}
+                    disabled={loading}
+                    className="text-error hover:bg-error/10 p-2 rounded transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add New Ingredient */}
+        <div className="border-t border-border pt-6">
+          <label className="label mb-3">Agregar Ingrediente</label>
+
+          {availableForSelection.length === 0 ? (
+            <Alert
+              type="info"
+              message="No hay insumos disponibles para agregar. Todos los insumos activos ya están asignados o no tienes insumos creados en tu inventario."
+            />
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="label text-sm">Seleccionar Insumo</label>
+                <select
+                  value={selectedInventoryId}
+                  onChange={(e) => setSelectedInventoryId(e.target.value)}
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="">-- Selecciona un insumo --</option>
+                  {availableForSelection.map((inv) => (
+                    <option key={inv.id} value={inv.id}>
+                      {inv.name} ({inv.unit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedInventoryId && (
+                <div>
+                  <label className="label text-sm">
+                    Cantidad Usada Por Porción (
+                    {availableInventory.find(inv => inv.id === selectedInventoryId)?.unit})
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              )}
+
+              <Button
+                onClick={handleAddIngredient}
+                disabled={!selectedInventoryId || !quantity || loading}
+                loading={loading}
+                fullWidth
+                icon={<Plus className="w-4 h-4" />}
+              >
+                Agregar Ingrediente
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 border-t border-border pt-6">
+          <Button variant="outline" onClick={onClose} fullWidth>
+            Cerrar
+          </Button>
+        </div>
+      </div>
     </Modal>
   );
 };
@@ -635,16 +861,16 @@ const DeleteModal: React.FC<DeleteModalProps> = ({ isOpen, item, onClose }) => {
   if (!item) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Delete Menu Item" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Eliminar Platillo" size="md">
       <div className="space-y-4">
         <Alert
           type="warning"
-          message={`Are you sure you want to delete "${item.name}"? This action cannot be undone.`}
+          message={`¿Seguro que quieres eliminar "${item.name}"? Esta acción no se puede deshacer.`}
         />
 
         <div className="flex gap-3">
           <Button variant="outline" onClick={onClose} fullWidth>
-            Cancel
+            Cancelar
           </Button>
           <Button
             variant="danger"
@@ -652,7 +878,7 @@ const DeleteModal: React.FC<DeleteModalProps> = ({ isOpen, item, onClose }) => {
             loading={loading}
             fullWidth
           >
-            Delete Item
+            Eliminar Platillo
           </Button>
         </div>
       </div>

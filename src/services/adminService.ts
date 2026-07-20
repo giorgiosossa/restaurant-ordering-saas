@@ -1,10 +1,6 @@
 import { supabase } from "../config/supabase";
 import type { RegistrationRequest, Restaurant } from "../config/supabase";
-import {
-  generateSlug,
-  generateTempPassword,
-  hashPassword,
-} from "../utils/helpers";
+import { generateSlug } from "../utils/helpers";
 
 /**
  * Admin API Service
@@ -71,12 +67,12 @@ export const createRestaurantAccount = async (
       throw new Error("Registration request not found");
     }
 
-    // 2. Generate slug and temp password
+    // 2. Generate slug
     const slug = generateSlug(request.restaurant_name);
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
 
-    // 3. Use RPC function to create restaurant and user (bypasses RLS)
+    // 3. Use RPC function to create the restaurant and link the owner's
+    // account (they already created it themselves with a password when
+    // they submitted the registration form)
     const { data: result, error: rpcError } = await supabase.rpc(
       "admin_create_restaurant",
       {
@@ -89,7 +85,7 @@ export const createRestaurantAccount = async (
         p_city: request.city,
         p_address: request.address || null,
         p_subscription_plan: data.subscriptionPlan,
-        p_password_hash: passwordHash,
+        p_password_hash: null,
         p_internal_notes: data.internalNotes || null,
       }
     );
@@ -112,7 +108,7 @@ export const createRestaurantAccount = async (
       },
       credentials: {
         email: data.email,
-        password: tempPassword,
+        ownerPin: result[0].owner_pin,
         loginUrl: `${window.location.origin}/login`,
       },
     };
@@ -183,6 +179,85 @@ export const toggleRestaurantStatus = async (
     p_restaurant_id: restaurantId,
     p_is_active: isCurrentlyBlocked, // If currently blocked, set to active (true)
     p_block_reason: blockReason || null,
+  });
+
+  return !error;
+};
+
+// Per-restaurant usage & billing stats (orders, revenue, amount owed based
+// on each restaurant's billing plan). Excludes cancelled/rejected orders
+// since those didn't generate real revenue.
+export interface RestaurantUsageStats {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  is_active: boolean;
+  billing_type: "commission" | "fixed";
+  commission_rate: number;
+  monthly_fee: number;
+  orderCount: number;
+  revenue: number;
+  amountOwed: number;
+  lastOrderAt: string | null;
+}
+
+export const getRestaurantUsageStats = async (): Promise<
+  RestaurantUsageStats[]
+> => {
+  const [{ data: restaurants, error: restError }, { data: orders, error: ordersError }] =
+    await Promise.all([
+      supabase
+        .from("restaurants")
+        .select(
+          "id, name, slug, status, is_active, billing_type, commission_rate, monthly_fee"
+        )
+        .order("name", { ascending: true }),
+      supabase
+        .from("orders")
+        .select("restaurant_id, total, status, created_at")
+        .not("status", "in", "(cancelled,rejected)"),
+    ]);
+
+  if (restError || !restaurants) {
+    console.error("Error fetching restaurant usage stats:", restError, ordersError);
+    return [];
+  }
+
+  return restaurants.map((r) => {
+    const restaurantOrders = (orders || []).filter(
+      (o) => o.restaurant_id === r.id
+    );
+    const orderCount = restaurantOrders.length;
+    const revenue = restaurantOrders.reduce(
+      (sum, o) => sum + (o.total || 0),
+      0
+    );
+    const lastOrderAt = restaurantOrders.reduce<string | null>(
+      (latest, o) => (!latest || o.created_at > latest ? o.created_at : latest),
+      null
+    );
+    const amountOwed =
+      r.billing_type === "fixed"
+        ? r.monthly_fee
+        : revenue * (r.commission_rate / 100);
+
+    return { ...r, orderCount, revenue, amountOwed, lastOrderAt };
+  });
+};
+
+// Update a restaurant's billing plan (commission % or fixed monthly fee)
+export const updateRestaurantBilling = async (
+  restaurantId: string,
+  billingType: "commission" | "fixed",
+  commissionRate: number,
+  monthlyFee: number
+) => {
+  const { error } = await supabase.rpc("admin_update_billing", {
+    p_restaurant_id: restaurantId,
+    p_billing_type: billingType,
+    p_commission_rate: commissionRate,
+    p_monthly_fee: monthlyFee,
   });
 
   return !error;

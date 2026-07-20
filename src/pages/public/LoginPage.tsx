@@ -4,7 +4,7 @@ import { Store, ArrowLeft, Mail, Lock, AlertCircle } from "lucide-react";
 import { Button, Input, Alert, Card } from "../../components/ui";
 import { APP_CONFIG } from "../../config/config";
 import { supabase } from "../../config/supabase";
-import { isValidEmail, hashPassword } from "../../utils/helpers";
+import { isValidEmail } from "../../utils/helpers";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -20,75 +20,76 @@ const LoginPage: React.FC = () => {
     setError("");
 
     if (!formData.email || !formData.password) {
-      setError("Please enter both email and password");
+      setError("Ingresa tu correo y contraseña");
       return;
     }
 
     if (!isValidEmail(formData.email)) {
-      setError("Please enter a valid email address");
+      setError("Ingresa un correo electrónico válido");
       return;
     }
 
     setLoading(true);
 
     try {
-      // Use RPC function for restaurant login (bypasses RLS issues)
-      const passwordHash = await hashPassword(formData.password);
-      console.log(
-        "Attempting login with:",
-        formData.email,
-        "hash:",
-        passwordHash.substring(0, 10) + "..."
-      );
+      const email = formData.email.trim().toLowerCase();
 
-      const { data: loginData, error: loginError } = await supabase.rpc(
-        "restaurant_login",
-        {
-          p_email: formData.email.toLowerCase(),
-          p_password_hash: passwordHash,
-        }
-      );
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password: formData.password,
+        });
 
-      console.log("Login response:", { data: loginData, error: loginError });
-
-      if (loginError) {
-        console.error("Login RPC error:", loginError);
-        // Show detailed error message
-        setError(
-          `Login failed: ${
-            loginError.message ||
-            "Please ensure the restaurant_login function exists in your database"
-          }`
-        );
+      if (authError || !authData.user) {
+        setError("Correo o contraseña incorrectos");
         setLoading(false);
         return;
       }
 
-      if (!loginData || loginData.length === 0) {
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select(
+          "id, email, role, restaurant_id, temp_password, restaurants(name, slug, is_active, status)"
+        )
+        .eq("id", authData.user.id)
+        .single();
+
+      if (userError || !userData) {
+        setError("Correo o contraseña incorrectos");
+        setLoading(false);
+        return;
+      }
+
+      if (!userData.restaurant_id) {
         // Check if registration is still pending
         const { data: registrationData } = await supabase
           .from("registration_requests")
           .select("status")
-          .eq("email", formData.email.toLowerCase())
+          .eq("email", email)
           .single();
+
+        await supabase.auth.signOut();
 
         if (registrationData && registrationData.status === "pending") {
           setError("pending");
-          setLoading(false);
-          return;
+        } else {
+          setError(
+            "Tu restaurante aún no ha sido aprobado. Contacta a soporte."
+          );
         }
-
-        setError("Invalid email or password");
         setLoading(false);
         return;
       }
 
-      const userData = loginData[0];
+      const restaurant = Array.isArray(userData.restaurants)
+        ? userData.restaurants[0]
+        : userData.restaurants;
 
       // Check if restaurant is active
-      if (!userData.restaurant_is_active) {
+      if (!restaurant?.is_active) {
+        await supabase.auth.signOut();
         setError(
-          "Your restaurant account has been deactivated. Please contact support."
+          "Tu cuenta de restaurante ha sido desactivada. Contacta a soporte."
         );
         setLoading(false);
         return;
@@ -103,9 +104,9 @@ const LoginPage: React.FC = () => {
           role: userData.role,
           restaurant_id: userData.restaurant_id,
           restaurant: {
-            name: userData.restaurant_name,
-            slug: userData.restaurant_slug,
-            is_active: userData.restaurant_is_active,
+            name: restaurant.name,
+            slug: restaurant.slug,
+            is_active: restaurant.is_active,
           },
           temp_password: userData.temp_password,
         })
@@ -119,7 +120,7 @@ const LoginPage: React.FC = () => {
       const errorMsg =
         err?.message ||
         err?.toString() ||
-        "Network error. Please check your connection.";
+        "Error de red. Revisa tu conexión.";
       setError(`Error: ${errorMsg}`);
     } finally {
       setLoading(false);
@@ -141,7 +142,7 @@ const LoginPage: React.FC = () => {
           className="inline-flex items-center text-text-secondary hover:text-text mb-8"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Home
+          Volver al Inicio
         </Link>
 
         {/* Login Card */}
@@ -151,9 +152,9 @@ const LoginPage: React.FC = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/5 mb-4">
               <Store className="w-10 h-10 text-accent" />
             </div>
-            <h1 className="text-2xl font-bold text-text mb-2">Welcome Back</h1>
+            <h1 className="text-2xl font-bold text-text mb-2">Bienvenido de Nuevo</h1>
             <p className="text-text-secondary">
-              Login to your restaurant dashboard
+              Inicia sesión en el panel de tu restaurante
             </p>
           </div>
 
@@ -161,8 +162,8 @@ const LoginPage: React.FC = () => {
           {error === "pending" && (
             <Alert
               type="warning"
-              title="Account Pending Verification"
-              message="Your registration is under review. Our team will contact you within 24 hours to complete the setup."
+              title="Cuenta Pendiente de Verificación"
+              message="Tu registro está en revisión. Nuestro equipo te contactará en menos de 24 horas para completar la configuración."
               className="mb-6"
             />
           )}
@@ -175,15 +176,15 @@ const LoginPage: React.FC = () => {
           {/* Demo Credentials */}
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm font-semibold text-blue-800 mb-2">
-              🎯 Demo Account - Try it out!
+              🎯 Cuenta Demo - ¡Pruébala!
             </p>
             <div className="text-sm text-blue-700 space-y-1">
               <p>
-                <span className="font-medium">Email:</span>{" "}
+                <span className="font-medium">Correo:</span>{" "}
                 demorestaurant@gmail.com
               </p>
               <p>
-                <span className="font-medium">Password:</span> ATVSW679
+                <span className="font-medium">Contraseña:</span> ATVSW679
               </p>
             </div>
           </div>
@@ -191,24 +192,24 @@ const LoginPage: React.FC = () => {
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              label="Email Address"
+              label="Correo Electrónico"
               name="email"
               type="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="your@email.com"
+              placeholder="tucorreo@ejemplo.com"
               icon={<Mail className="w-5 h-5" />}
               required
               autoComplete="email"
             />
 
             <Input
-              label="Password"
+              label="Contraseña"
               name="password"
               type="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="Enter your password"
+              placeholder="Ingresa tu contraseña"
               icon={<Lock className="w-5 h-5" />}
               required
               autoComplete="current-password"
@@ -217,26 +218,26 @@ const LoginPage: React.FC = () => {
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center text-text-secondary">
                 <input type="checkbox" className="mr-2 rounded border-border" />
-                Remember me
+                Recordarme
               </label>
               <a href="#" className="text-accent hover:underline">
-                Forgot password?
+                ¿Olvidaste tu contraseña?
               </a>
             </div>
 
             <Button type="submit" loading={loading} fullWidth size="lg">
-              Login
+              Iniciar Sesión
             </Button>
           </form>
 
           {/* Register Link */}
           <div className="mt-6 text-center text-sm text-text-secondary">
-            Don't have an account?{" "}
+            ¿No tienes una cuenta?{" "}
             <Link
               to="/register"
               className="text-accent font-medium hover:underline"
             >
-              Register your restaurant
+              Registra tu restaurante
             </Link>
           </div>
 
@@ -247,15 +248,15 @@ const LoginPage: React.FC = () => {
               className="text-sm text-text-secondary hover:text-text flex items-center justify-center"
             >
               <AlertCircle className="w-4 h-4 mr-2" />
-              Admin Login
+              Acceso de Administrador
             </Link>
           </div>
         </Card>
 
         {/* Help Text */}
         <p className="mt-6 text-center text-sm text-text-secondary">
-          Need help? Contact us at support@{APP_CONFIG.appName.toLowerCase()}
-          .com
+          ¿Necesitas ayuda? Contáctanos en support@
+          {APP_CONFIG.appName.toLowerCase()}.com
         </p>
       </div>
     </div>

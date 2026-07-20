@@ -36,28 +36,28 @@ const LandingPage: React.FC = () => {
                 href="#features"
                 className="text-text-secondary hover:text-text transition-colors"
               >
-                Features
+                Funciones
               </a>
               <a
                 href="#pricing"
                 className="text-text-secondary hover:text-text transition-colors"
               >
-                Pricing
+                Precios
               </a>
               <a
                 href="#how-it-works"
                 className="text-text-secondary hover:text-text transition-colors"
               >
-                How it Works
+                Cómo Funciona
               </a>
               <Link
                 to="/login"
                 className="text-text-secondary hover:text-text transition-colors"
               >
-                Login
+                Iniciar Sesión
               </Link>
               <Link to="/register">
-                <Button size="sm">Get Started</Button>
+                <Button size="sm">Comenzar</Button>
               </Link>
             </div>
 
@@ -82,31 +82,31 @@ const LandingPage: React.FC = () => {
                 className="block py-2 text-text-secondary hover:text-text transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Features
+                Funciones
               </a>
               <a
                 href="#pricing"
                 className="block py-2 text-text-secondary hover:text-text transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Pricing
+                Precios
               </a>
               <a
                 href="#how-it-works"
                 className="block py-2 text-text-secondary hover:text-text transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                How it Works
+                Cómo Funciona
               </a>
               <Link
                 to="/login"
                 className="block py-2 text-text-secondary hover:text-text transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Login
+                Iniciar Sesión
               </Link>
               <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
-                <Button fullWidth>Get Started</Button>
+                <Button fullWidth>Comenzar</Button>
               </Link>
             </div>
           )}
@@ -118,24 +118,24 @@ const LandingPage: React.FC = () => {
         <div className="container-custom">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-4xl md:text-6xl font-bold text-text mb-6 leading-tight">
-              Digitize Your Restaurant
+              Digitaliza tu Restaurante
               <br />
-              in Minutes
+              en Minutos
             </h1>
             <p className="text-lg md:text-xl text-text-secondary mb-10 max-w-2xl mx-auto">
-              Get your own QR ordering system. Let customers order directly from
-              their phones. No app downloads, no commission fees, just seamless
-              ordering.
+              Ten tu propio sistema de pedidos por QR. Deja que tus clientes
+              pidan directamente desde su celular. Sin descargar apps, sin
+              comisiones ocultas, solo pedidos sin fricción.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/register">
                 <Button size="lg" icon={<ArrowRight className="w-5 h-5" />}>
-                  Start Free Trial
+                  Comenzar Prueba Gratis
                 </Button>
               </Link>
               <a href="#how-it-works">
                 <Button size="lg" variant="outline">
-                  See How it Works
+                  Ver Cómo Funciona
                 </Button>
               </a>
             </div>
@@ -145,19 +145,19 @@ const LandingPage: React.FC = () => {
               <div>
                 <div className="text-3xl font-bold text-text mb-1">50+</div>
                 <div className="text-sm text-text-secondary">
-                  Active Restaurants
+                  Restaurantes Activos
                 </div>
               </div>
               <div>
                 <div className="text-3xl font-bold text-text mb-1">10k+</div>
                 <div className="text-sm text-text-secondary">
-                  Orders Processed
+                  Pedidos Procesados
                 </div>
               </div>
               <div>
                 <div className="text-3xl font-bold text-text mb-1">4.9</div>
                 <div className="text-sm text-text-secondary">
-                  Customer Rating
+                  Calificación de Clientes
                 </div>
               </div>
             </div>
@@ -170,11 +170,11 @@ const LandingPage: React.FC = () => {
         <div className="container-custom">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-text mb-4">
-              Everything you need to go digital
+              Todo lo que necesitas para digitalizarte
             </h2>
             <p className="text-lg text-text-secondary max-w-2xl mx-auto">
-              A complete ordering system designed specifically for restaurants,
-              cafes, and food trucks
+              Un sistema de pedidos completo diseñado especialmente para
+              restaurantes, cafeterías y food trucks
             </p>
           </div>
 
@@ -182,27 +182,27 @@ const LandingPage: React.FC = () => {
             {[
               {
                 icon: QrCode,
-                title: "QR Code Ordering",
+                title: "Pedidos por Código QR",
                 description:
-                  "Customers scan your unique QR code to view menu and place orders instantly",
+                  "Tus clientes escanean tu código QR único para ver el menú y hacer pedidos al instante",
               },
               {
                 icon: Smartphone,
-                title: "Mobile-First Design",
+                title: "Diseño Mobile-First",
                 description:
-                  "Beautiful, fast interface that works perfectly on all devices",
+                  "Una interfaz hermosa y rápida que funciona perfecto en cualquier dispositivo",
               },
               {
                 icon: TrendingUp,
-                title: "Real-Time Updates",
+                title: "Actualizaciones en Tiempo Real",
                 description:
-                  "Get instant notifications for new orders. Update menu availability live",
+                  "Recibe notificaciones instantáneas de nuevos pedidos. Actualiza la disponibilidad del menú al momento",
               },
               {
                 icon: Clock,
-                title: "Save Time",
+                title: "Ahorra Tiempo",
                 description:
-                  "No more taking orders manually. Focus on cooking and serving",
+                  "Ya no tomes pedidos a mano. Enfócate en cocinar y servir",
               },
             ].map((feature, index) => (
               <div key={index} className="card text-center">
@@ -224,10 +224,10 @@ const LandingPage: React.FC = () => {
         <div className="container-custom">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-text mb-4">
-              Simple, transparent pricing
+              Precios simples y transparentes
             </h2>
             <p className="text-lg text-text-secondary">
-              Start with a 14-day free trial. No credit card required.
+              Comienza con 14 días de prueba gratis. No necesitas tarjeta de crédito.
             </p>
           </div>
 
@@ -241,7 +241,7 @@ const LandingPage: React.FC = () => {
               >
                 {key === "starter" && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-accent text-white px-4 py-1 rounded-full text-sm font-medium">
-                    Most Popular
+                    Más Popular
                   </div>
                 )}
                 <div className="text-center mb-6">
@@ -278,7 +278,7 @@ const LandingPage: React.FC = () => {
                     variant={key === "starter" ? "primary" : "outline"}
                     fullWidth
                   >
-                    {plan.price === 0 ? "Start Free Trial" : "Get Started"}
+                    {plan.price === 0 ? "Comenzar Prueba Gratis" : "Comenzar"}
                   </Button>
                 </Link>
               </div>
@@ -292,7 +292,7 @@ const LandingPage: React.FC = () => {
         <div className="container-custom">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-text mb-4">
-              Get started in 3 simple steps
+              Empieza en 3 simples pasos
             </h2>
           </div>
 
@@ -300,21 +300,21 @@ const LandingPage: React.FC = () => {
             {[
               {
                 step: "01",
-                title: "Register Your Restaurant",
+                title: "Registra tu Restaurante",
                 description:
-                  "Fill out a quick form with your restaurant details. Our team will verify and contact you within 24 hours.",
+                  "Llena un formulario rápido con los datos de tu restaurante. Nuestro equipo lo verificará y te contactará en menos de 24 horas.",
               },
               {
                 step: "02",
-                title: "Setup Your Menu",
+                title: "Configura tu Menú",
                 description:
-                  "Add your dishes, prices, photos, and categories through our easy-to-use dashboard.",
+                  "Agrega tus platillos, precios, fotos y categorías desde nuestro panel fácil de usar.",
               },
               {
                 step: "03",
-                title: "Start Taking Orders",
+                title: "Empieza a Recibir Pedidos",
                 description:
-                  "Display your QR code at tables. Customers scan, order, and you get notified instantly!",
+                  "Coloca tu código QR en las mesas. Los clientes escanean, piden, ¡y te avisamos al instante!",
               },
             ].map((item, index) => (
               <div key={index} className="text-center">
@@ -336,11 +336,11 @@ const LandingPage: React.FC = () => {
         <div className="container-custom">
           <div className="bg-accent rounded-lg p-12 text-center text-white">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to digitize your restaurant?
+              ¿Listo para digitalizar tu restaurante?
             </h2>
             <p className="text-lg mb-8 text-white/90 max-w-2xl mx-auto">
-              Join 50+ restaurants already using {APP_CONFIG.appName} to
-              streamline their operations
+              Únete a más de 50 restaurantes que ya usan {APP_CONFIG.appName}{" "}
+              para optimizar sus operaciones
             </p>
             <Link to="/register">
               <Button
@@ -348,7 +348,7 @@ const LandingPage: React.FC = () => {
                 variant="outline"
                 className="bg-white text-accent hover:bg-white/90"
               >
-                Get Started for Free
+                Comienza Gratis
               </Button>
             </Link>
           </div>
@@ -367,18 +367,18 @@ const LandingPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-sm text-text-secondary">
-                Digital ordering made simple for restaurants
+                Pedidos digitales simples para restaurantes
               </p>
             </div>
             <div>
-              <h4 className="font-semibold text-text mb-4">Product</h4>
+              <h4 className="font-semibold text-text mb-4">Producto</h4>
               <ul className="space-y-2">
                 <li>
                   <a
                     href="#features"
                     className="text-sm text-text-secondary hover:text-text"
                   >
-                    Features
+                    Funciones
                   </a>
                 </li>
                 <li>
@@ -386,7 +386,7 @@ const LandingPage: React.FC = () => {
                     href="#pricing"
                     className="text-sm text-text-secondary hover:text-text"
                   >
-                    Pricing
+                    Precios
                   </a>
                 </li>
                 <li>
@@ -394,20 +394,20 @@ const LandingPage: React.FC = () => {
                     href="#how-it-works"
                     className="text-sm text-text-secondary hover:text-text"
                   >
-                    How it Works
+                    Cómo Funciona
                   </a>
                 </li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-text mb-4">Company</h4>
+              <h4 className="font-semibold text-text mb-4">Empresa</h4>
               <ul className="space-y-2">
                 <li>
                   <a
                     href="#"
                     className="text-sm text-text-secondary hover:text-text"
                   >
-                    About Us
+                    Nosotros
                   </a>
                 </li>
                 <li>
@@ -415,7 +415,7 @@ const LandingPage: React.FC = () => {
                     href="#"
                     className="text-sm text-text-secondary hover:text-text"
                   >
-                    Contact
+                    Contacto
                   </a>
                 </li>
                 <li>
@@ -423,7 +423,7 @@ const LandingPage: React.FC = () => {
                     href="#"
                     className="text-sm text-text-secondary hover:text-text"
                   >
-                    Support
+                    Soporte
                   </a>
                 </li>
               </ul>
@@ -436,7 +436,7 @@ const LandingPage: React.FC = () => {
                     href="#"
                     className="text-sm text-text-secondary hover:text-text"
                   >
-                    Privacy Policy
+                    Política de Privacidad
                   </a>
                 </li>
                 <li>
@@ -444,15 +444,15 @@ const LandingPage: React.FC = () => {
                     href="#"
                     className="text-sm text-text-secondary hover:text-text"
                   >
-                    Terms of Service
+                    Términos de Servicio
                   </a>
                 </li>
               </ul>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-border text-center text-sm text-text-secondary">
-            © {new Date().getFullYear()} {APP_CONFIG.appName}. All rights
-            reserved.
+            © {new Date().getFullYear()} {APP_CONFIG.appName}. Todos los
+            derechos reservados.
           </div>
         </div>
       </footer>
