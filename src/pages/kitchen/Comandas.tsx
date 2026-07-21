@@ -483,14 +483,16 @@ const Comandas: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Corte de Caja */}
-                <button
-                  onClick={handleOpenShiftClosure}
-                  className="p-2 rounded-lg border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
-                  title="Corte de Caja"
-                >
-                  <Calculator className="w-4 h-4" />
-                </button>
+                {/* Corte de Caja - Solo para cajeros */}
+                {session && !session.isAdminBypass && session.roles.includes("caja") && (
+                  <button
+                    onClick={handleOpenShiftClosure}
+                    className="p-2 rounded-lg border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
+                    title="Corte de Caja"
+                  >
+                    <Calculator className="w-4 h-4" />
+                  </button>
+                )}
 
                 {/* History */}
                 <button
@@ -550,13 +552,16 @@ const Comandas: React.FC = () => {
 
               {/* Mobile utility buttons only */}
               <div className="flex sm:hidden items-center gap-1.5">
-                <button
-                  onClick={handleOpenShiftClosure}
-                  className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
-                  title="Corte de Caja"
-                >
-                  <Calculator className="w-3.5 h-3.5" />
-                </button>
+                {/* Corte de Caja - Solo para cajeros */}
+                {session && !session.isAdminBypass && session.roles.includes("caja") && (
+                  <button
+                    onClick={handleOpenShiftClosure}
+                    className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
+                    title="Corte de Caja"
+                  >
+                    <Calculator className="w-3.5 h-3.5" />
+                  </button>
+                )}
 
                 <button
                   onClick={() => setShowHistory(true)}
@@ -961,11 +966,17 @@ const Comandas: React.FC = () => {
                               <div className="flex items-center gap-2">
                                 {payment.method === "cash" ? (
                                   <Banknote className="w-4 h-4 text-green-600" />
+                                ) : payment.method === "terminal" ? (
+                                  <CreditCard className="w-4 h-4 text-red-600" />
                                 ) : (
                                   <CreditCard className="w-4 h-4 text-blue-600" />
                                 )}
-                                <span className="text-sm font-medium text-neutral-900 dark:text-white capitalize">
-                                  {payment.method === "cash" ? "Efectivo" : payment.method === "card" ? "Tarjeta" : payment.method}
+                                <span className="text-sm font-medium text-neutral-900 dark:text-white">
+                                  {payment.method === "cash"
+                                    ? "Efectivo en Barra"
+                                    : payment.method === "terminal"
+                                    ? "Terminal a la Mesa"
+                                    : payment.method}
                                 </span>
                                 <span className="text-xs text-neutral-500">
                                   ({payment.count} {payment.count === 1 ? "orden" : "órdenes"})
