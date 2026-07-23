@@ -46,6 +46,9 @@ export interface Restaurant {
   status: "active" | "blocked" | "trial";
   is_active: boolean;
   terminal_payment_auto_approve?: boolean;
+  openpay_customer_id?: string;
+  owner_pin?: string;
+  pin_enabled?: boolean;
   internal_notes?: string;
   block_reason?: string;
   trial_ends_at?: string;

@@ -7,11 +7,13 @@ import {
   Eye,
   EyeOff,
   Smartphone,
+  CreditCard,
 } from "lucide-react";
 import { Card, Button, Loading, Alert } from "../../components/ui";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "../../config/supabase";
 import type { Restaurant } from "../../config/supabase";
+import { registerRestaurant } from "../../services/openpayFrontendService";
 
 const RestaurantSettings: React.FC = () => {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -32,6 +34,21 @@ const RestaurantSettings: React.FC = () => {
   const [terminalLoading, setTerminalLoading] = useState(false);
   const [terminalError, setTerminalError] = useState("");
   const [terminalSuccess, setTerminalSuccess] = useState("");
+
+  // Openpay settings state
+  const [openpayData, setOpenpayData] = useState({
+    rfc: "",
+    clabe: "",
+    bankHolderName: "",
+    bankName: "",
+    address: "",
+    postalCode: "",
+    state: "",
+    city: "",
+  });
+  const [openpayLoading, setOpenpayLoading] = useState(false);
+  const [openpayError, setOpenpayError] = useState("");
+  const [openpaySuccess, setOpenpaySuccess] = useState("");
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -144,6 +161,81 @@ const RestaurantSettings: React.FC = () => {
       setPinError(err.message || "Error al configurar el PIN");
     } finally {
       setPinLoading(false);
+    }
+  };
+
+  const handleRegisterOpenpay = async () => {
+    setOpenpayError("");
+    setOpenpaySuccess("");
+
+    // Validate input
+    if (!openpayData.rfc || !openpayData.clabe || !openpayData.bankHolderName || !openpayData.bankName) {
+      setOpenpayError("Por favor completa todos los campos obligatorios");
+      return;
+    }
+
+    // Validate CLABE
+    if (openpayData.clabe.length !== 18) {
+      setOpenpayError("La CLABE debe tener exactamente 18 dígitos");
+      return;
+    }
+
+    if (!/^\d{18}$/.test(openpayData.clabe)) {
+      setOpenpayError("La CLABE debe contener solo dígitos");
+      return;
+    }
+
+    setOpenpayLoading(true);
+
+    try {
+      const result = await registerRestaurant({
+        restaurantId: restaurant!.id,
+        businessName: restaurant!.name,
+        rfc: openpayData.rfc,
+        email: restaurant!.email,
+        phone: restaurant!.phone,
+        address: {
+          line1: openpayData.address || restaurant!.address || "Sin dirección",
+          postal_code: openpayData.postalCode || "00000",
+          state: openpayData.state || restaurant!.city || "CDMX",
+          city: openpayData.city || restaurant!.city || "Ciudad de México",
+          country_code: "MX",
+        },
+        bankAccount: {
+          clabe: openpayData.clabe,
+          holder_name: openpayData.bankHolderName,
+          bank_name: openpayData.bankName,
+        },
+      });
+
+      setOpenpaySuccess(`¡Restaurante registrado en Openpay! ID: ${result.data.openpayCustomerId}`);
+
+      // Reload restaurant data
+      const { data, error: fetchError } = await supabase
+        .from("restaurants")
+        .select("*")
+        .eq("id", restaurant?.id)
+        .single();
+
+      if (!fetchError && data) {
+        setRestaurant(data);
+      }
+
+      // Clear form
+      setOpenpayData({
+        rfc: "",
+        clabe: "",
+        bankHolderName: "",
+        bankName: "",
+        address: "",
+        postalCode: "",
+        state: "",
+        city: "",
+      });
+    } catch (err: any) {
+      setOpenpayError(err.message || "Error al registrar en Openpay");
+    } finally {
+      setOpenpayLoading(false);
     }
   };
 
@@ -437,6 +529,218 @@ const RestaurantSettings: React.FC = () => {
             Guardar Configuración
           </Button>
         </div>
+      </Card>
+
+      {/* Openpay Payment Integration */}
+      <Card>
+        <div className="flex items-start space-x-2 mb-4">
+          <CreditCard className="w-6 h-6 text-accent" />
+          <div>
+            <h3 className="text-xl font-bold text-text">Pagos con Openpay</h3>
+            <p className="text-text-secondary text-sm">
+              Configura tu cuenta de Openpay para recibir pagos con tarjeta directamente
+            </p>
+          </div>
+        </div>
+
+        {openpayError && (
+          <Alert type="error" message={openpayError} onClose={() => setOpenpayError("")} className="mb-4" />
+        )}
+        {openpaySuccess && (
+          <Alert type="success" message={openpaySuccess} onClose={() => setOpenpaySuccess("")} className="mb-4" />
+        )}
+
+        {restaurant?.openpay_customer_id ? (
+          <div className="space-y-4">
+            <div className="bg-success/10 border border-success/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-success mb-2">
+                <div className="w-2 h-2 rounded-full bg-success"></div>
+                <span className="font-semibold">Openpay Configurado</span>
+              </div>
+              <p className="text-text-secondary text-sm">
+                Customer ID: <span className="font-mono text-text">{restaurant.openpay_customer_id}</span>
+              </p>
+              <p className="text-success text-sm mt-2">
+                ✓ Tu restaurante ya puede recibir pagos con tarjeta
+              </p>
+            </div>
+
+            <Button
+              onClick={async () => {
+                if (!window.confirm('¿Estás seguro de que deseas desregistrar tu cuenta de Openpay? Esta acción eliminará la configuración de pagos.')) {
+                  return;
+                }
+
+                setOpenpayLoading(true);
+                setOpenpayError("");
+                setOpenpaySuccess("");
+
+                try {
+                  const { error } = await supabase
+                    .from('restaurants')
+                    .update({ openpay_customer_id: null, updated_at: new Date().toISOString() })
+                    .eq('id', restaurant.id);
+
+                  if (error) throw error;
+
+                  setOpenpaySuccess("Cuenta de Openpay desregistrada exitosamente");
+
+                  // Reload restaurant data
+                  const { data: updatedRestaurant } = await supabase
+                    .from('restaurants')
+                    .select('*')
+                    .eq('id', restaurant.id)
+                    .single();
+
+                  if (updatedRestaurant) {
+                    setRestaurant(updatedRestaurant);
+                  }
+                } catch (err: any) {
+                  console.error('Error removing Openpay:', err);
+                  setOpenpayError(err.message || "Error al desregistrar cuenta de Openpay");
+                } finally {
+                  setOpenpayLoading(false);
+                }
+              }}
+              variant="outline"
+              loading={openpayLoading}
+              className="border-error text-error hover:bg-error/10"
+            >
+              Desregistrar Openpay
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
+              <h4 className="font-semibold text-text mb-2">¿Por qué registrar tu cuenta?</h4>
+              <ul className="space-y-1 text-text-secondary text-sm">
+                <li>• Acepta pagos con tarjeta de débito y crédito</li>
+                <li>• El dinero se deposita DIRECTO a tu cuenta bancaria</li>
+                <li>• Sin comisiones adicionales de la plataforma</li>
+                <li>• Integración segura con Openpay</li>
+              </ul>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="label mb-2">RFC * (Registro Federal de Contribuyentes)</label>
+                <input
+                  type="text"
+                  value={openpayData.rfc}
+                  onChange={(e) => setOpenpayData({ ...openpayData, rfc: e.target.value.toUpperCase() })}
+                  placeholder="XAXX010101000"
+                  maxLength={13}
+                  className="input-field uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="label mb-2">CLABE Interbancaria * (18 dígitos)</label>
+                <input
+                  type="text"
+                  value={openpayData.clabe}
+                  onChange={(e) => setOpenpayData({ ...openpayData, clabe: e.target.value.replace(/\D/g, "") })}
+                  placeholder="012298026516924616"
+                  maxLength={18}
+                  className="input-field font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="label mb-2">Titular de la Cuenta *</label>
+                <input
+                  type="text"
+                  value={openpayData.bankHolderName}
+                  onChange={(e) => setOpenpayData({ ...openpayData, bankHolderName: e.target.value })}
+                  placeholder="Nombre del titular"
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="label mb-2">Banco *</label>
+                <select
+                  value={openpayData.bankName}
+                  onChange={(e) => setOpenpayData({ ...openpayData, bankName: e.target.value })}
+                  className="input-field"
+                >
+                  <option value="">Selecciona tu banco</option>
+                  <option value="BBVA Bancomer">BBVA Bancomer</option>
+                  <option value="Santander">Santander</option>
+                  <option value="Banamex">Banamex</option>
+                  <option value="Banorte">Banorte</option>
+                  <option value="HSBC">HSBC</option>
+                  <option value="Scotiabank">Scotiabank</option>
+                  <option value="Inbursa">Inbursa</option>
+                  <option value="Otro">Otro</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="label mb-2">Dirección (Opcional)</label>
+                <input
+                  type="text"
+                  value={openpayData.address}
+                  onChange={(e) => setOpenpayData({ ...openpayData, address: e.target.value })}
+                  placeholder="Calle y número"
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="label mb-2">Código Postal (Opcional)</label>
+                <input
+                  type="text"
+                  value={openpayData.postalCode}
+                  onChange={(e) => setOpenpayData({ ...openpayData, postalCode: e.target.value.replace(/\D/g, "") })}
+                  placeholder="06000"
+                  maxLength={5}
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="label mb-2">Estado (Opcional)</label>
+                <input
+                  type="text"
+                  value={openpayData.state}
+                  onChange={(e) => setOpenpayData({ ...openpayData, state: e.target.value })}
+                  placeholder="CDMX"
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="label mb-2">Ciudad (Opcional)</label>
+                <input
+                  type="text"
+                  value={openpayData.city}
+                  onChange={(e) => setOpenpayData({ ...openpayData, city: e.target.value })}
+                  placeholder="Ciudad de México"
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
+              <p className="text-warning text-sm font-semibold mb-1">⚠️ Importante:</p>
+              <ul className="text-text-secondary text-sm space-y-1">
+                <li>• Asegúrate de que la CLABE sea correcta (18 dígitos)</li>
+                <li>• El titular de la cuenta debe coincidir con el RFC del restaurante</li>
+                <li>• Esta información se enviará de forma segura a Openpay</li>
+              </ul>
+            </div>
+
+            <Button
+              onClick={handleRegisterOpenpay}
+              loading={openpayLoading}
+              disabled={!openpayData.rfc || !openpayData.clabe || !openpayData.bankHolderName || !openpayData.bankName}
+              icon={<CreditCard className="w-5 h-5" />}
+            >
+              Registrar en Openpay
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* Additional Settings Placeholder */}

@@ -34,6 +34,15 @@ import {
   copyToClipboard,
 } from "../../utils/helpers";
 import { supabase } from "../../config/supabase";
+import {
+  initOpenpay,
+  tokenizeCard,
+  processCardPayment,
+  formatCardNumber,
+  validateCardNumber,
+  getCardType,
+} from "../../services/openpayFrontendService";
+import type { CardData } from "../../services/openpayFrontendService";
 
 interface CartItem extends MenuItem {
   quantity: number;
@@ -692,6 +701,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [paymentCode, setPaymentCode] = useState<string>("");
 
+  // Card payment states
+  const [cardData, setCardData] = useState<CardData>({
+    card_number: "",
+    holder_name: "",
+    expiration_year: "",
+    expiration_month: "",
+    cvv2: "",
+  });
+  const [deviceSessionId, setDeviceSessionId] = useState("");
+  const [cardProcessing, setCardProcessing] = useState(false);
+
   const subtotal = cart.reduce(
     (sum, item) => sum + item.itemTotal * item.quantity,
     0
@@ -699,6 +719,23 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const total = subtotal;
 
   const isPhoneRequired = orderType !== "table";
+
+  // Initialize Openpay SDK when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const initializeOpenpay = async () => {
+        try {
+          const sessionId = await initOpenpay();
+          setDeviceSessionId(sessionId);
+          console.log('[CustomerMenu] Openpay SDK initialized');
+        } catch (error) {
+          console.error('[CustomerMenu] Error initializing Openpay SDK:', error);
+        }
+      };
+
+      initializeOpenpay();
+    }
+  }, [isOpen]);
 
   // Generate a unique 4-digit payment code for the day (from database)
   const generatePaymentCode = async (restaurantId: string): Promise<string> => {
@@ -744,6 +781,30 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
+    // Validate card data if paying now
+    if (paymentMethod === "now") {
+      if (!cardData.card_number || cardData.card_number.length < 15) {
+        setError("Ingresa un número de tarjeta válido");
+        return;
+      }
+      if (!validateCardNumber(cardData.card_number)) {
+        setError("El número de tarjeta es inválido");
+        return;
+      }
+      if (!cardData.holder_name.trim()) {
+        setError("Ingresa el nombre del titular de la tarjeta");
+        return;
+      }
+      if (!cardData.expiration_month || !cardData.expiration_year) {
+        setError("Ingresa la fecha de expiración de la tarjeta");
+        return;
+      }
+      if (!cardData.cvv2 || cardData.cvv2.length < 3) {
+        setError("Ingresa el CVV de la tarjeta");
+        return;
+      }
+    }
+
     // Go to confirmation step
     setStep("confirm");
   };
@@ -753,6 +814,70 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setError("");
 
     try {
+      // Process card payment FIRST if "Pagar ahora" is selected
+      if (paymentMethod === "now") {
+        setCardProcessing(true);
+        try {
+          // Tokenize the card
+          const cardToken = await tokenizeCard(cardData);
+          console.log('[CustomerMenu] Card tokenized successfully');
+
+          // Create order first to get order_id
+          const orderData = {
+            restaurant_id: restaurantId,
+            order_type: (orderType === "table" ? "qr" : "counter") as "qr" | "counter",
+            table_number: orderType === "table" ? tableNumber : undefined,
+            customer_name: customerName,
+            customer_phone: customerPhone || undefined,
+            items: cart.map((item) => ({
+              menu_item_id: item.id,
+              name: item.name,
+              quantity: item.quantity,
+              base_price: item.base_price,
+              selected_size: item.selectedSize,
+              selected_addons: item.selectedAddons,
+              item_total: item.itemTotal,
+            })),
+            subtotal,
+            tax: 0,
+            total,
+            customer_notes: notes,
+            payment_type: paymentMethod,
+            is_blocked: true, // Block until payment is confirmed
+            status: "pending" as const,
+            payment_status: "pending",
+          };
+
+          const { data: orderCreated, error: orderError } = await createOrder(orderData);
+          if (orderError || !orderCreated) {
+            throw new Error(orderError?.message || "Error al crear el pedido");
+          }
+
+          // Process the payment
+          const paymentResult = await processCardPayment(
+            orderCreated.order_number,
+            cardToken,
+            deviceSessionId,
+            total,
+            `Pedido ${orderCreated.order_number} - ${restaurant?.name || 'Restaurante'}`
+          );
+
+          if (paymentResult.success) {
+            setPlacedOrder(orderCreated);
+            setStep("ticket");
+            console.log('[CustomerMenu] Payment successful');
+          } else {
+            throw new Error(paymentResult.error || 'Error al procesar el pago');
+          }
+        } catch (error: any) {
+          setError(error.message || "Error al procesar el pago con tarjeta");
+          console.error('[CustomerMenu] Card payment error:', error);
+        } finally {
+          setCardProcessing(false);
+        }
+        return; // Exit early after handling card payment
+      }
+
       // Generate payment code if cash_at_bar
       let generatedCode = "";
       if (paymentMethod === "cash_at_bar") {
@@ -831,6 +956,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setPlacedOrder(null);
     setCopied(false);
     setError("");
+
+    // Clear card data
+    setCardData({
+      card_number: "",
+      holder_name: "",
+      expiration_year: "",
+      expiration_month: "",
+      cvv2: "",
+    });
+    setDeviceSessionId("");
+    setCardProcessing(false);
 
     // Call onSuccess to clear cart and close modal
     onSuccess();
@@ -1060,10 +1196,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </Button>
             <Button
               onClick={handleConfirmOrder}
-              loading={loading}
+              loading={loading || cardProcessing}
               fullWidth
             >
-              Confirmar Pedido
+              {cardProcessing ? "Procesando pago..." : "Confirmar Pedido"}
             </Button>
           </div>
         </div>
@@ -1216,6 +1352,120 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Card Payment Form (only for pay now) */}
+        {paymentMethod === "now" && (
+          <div className="space-y-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <h4 className="font-semibold text-text mb-3 flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-purple-600" />
+              Información de la tarjeta
+            </h4>
+
+            {/* Card Number */}
+            <div>
+              <label className="label mb-2">Número de tarjeta</label>
+              <input
+                type="text"
+                value={formatCardNumber(cardData.card_number)}
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(/\s/g, '');
+                  if (cleaned.length <= 16 && /^\d*$/.test(cleaned)) {
+                    setCardData({ ...cardData, card_number: cleaned });
+                  }
+                }}
+                placeholder="1234 5678 9012 3456"
+                className="input-field font-mono"
+                maxLength={19}
+                required
+              />
+              {cardData.card_number.length >= 15 && (
+                <p className="text-xs text-text-secondary mt-1">
+                  {validateCardNumber(cardData.card_number)
+                    ? `✓ ${getCardType(cardData.card_number)}`
+                    : '⚠ Número de tarjeta inválido'}
+                </p>
+              )}
+            </div>
+
+            {/* Cardholder Name */}
+            <div>
+              <label className="label mb-2">Nombre del titular</label>
+              <input
+                type="text"
+                value={cardData.holder_name}
+                onChange={(e) => setCardData({ ...cardData, holder_name: e.target.value.toUpperCase() })}
+                placeholder="NOMBRE APELLIDO"
+                className="input-field uppercase"
+                required
+              />
+            </div>
+
+            {/* Expiration and CVV */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label mb-2">Mes de expiración</label>
+                <select
+                  value={cardData.expiration_month}
+                  onChange={(e) => setCardData({ ...cardData, expiration_month: e.target.value })}
+                  className="input-field"
+                  required
+                >
+                  <option value="">Mes</option>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const month = (i + 1).toString().padStart(2, '0');
+                    return <option key={month} value={month}>{month}</option>;
+                  })}
+                </select>
+              </div>
+              <div>
+                <label className="label mb-2">Año de expiración</label>
+                <select
+                  value={cardData.expiration_year}
+                  onChange={(e) => setCardData({ ...cardData, expiration_year: e.target.value })}
+                  className="input-field"
+                  required
+                >
+                  <option value="">Año</option>
+                  {Array.from({ length: 10 }, (_, i) => {
+                    const year = (new Date().getFullYear() + i).toString().slice(-2);
+                    return <option key={year} value={year}>{year}</option>;
+                  })}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label mb-2">CVV</label>
+                <input
+                  type="text"
+                  value={cardData.cvv2}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length <= 4 && /^\d*$/.test(value)) {
+                      setCardData({ ...cardData, cvv2: value });
+                    }
+                  }}
+                  placeholder="123"
+                  className="input-field font-mono text-center"
+                  maxLength={4}
+                  required
+                />
+              </div>
+              <div className="flex items-end">
+                <p className="text-xs text-text-secondary">
+                  Código de seguridad de 3 o 4 dígitos
+                </p>
+              </div>
+            </div>
+
+            {/* Security badge */}
+            <div className="flex items-center gap-2 text-xs text-text-secondary bg-white p-2 rounded border border-purple-200">
+              <span className="text-green-600">🔒</span>
+              <span>Tus datos están protegidos y encriptados</span>
+            </div>
           </div>
         )}
 
