@@ -351,6 +351,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
     name: "",
     description: "",
     category: "",
+    category_type: "food" as "food" | "beverage" | "dessert" | "coffee",
     base_price: "",
     image_url: "",
     is_available: true,
@@ -367,6 +368,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
         name: item.name,
         description: item.description || "",
         category: item.category || "",
+        category_type: (item as any).category_type || "food",
         base_price: item.base_price.toString(),
         image_url: item.image_url || "",
         is_available: item.is_available,
@@ -378,6 +380,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
         name: "",
         description: "",
         category: "",
+        category_type: "food",
         base_price: "",
         image_url: "",
         is_available: true,
@@ -409,6 +412,7 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
       name: formData.name,
       description: formData.description || undefined,
       category: formData.category || undefined,
+      category_type: formData.category_type,
       base_price: parseFloat(formData.base_price),
       image_url: formData.image_url || undefined,
       is_available: formData.is_available,
@@ -506,13 +510,36 @@ const MenuItemModal: React.FC<MenuItemModalProps> = ({
 
         <div className="grid sm:grid-cols-2 gap-4">
           <Input
-            label="Categoría"
+            label="Categoría (Opcional)"
             value={formData.category}
             onChange={(e) =>
               setFormData({ ...formData, category: e.target.value })
             }
             placeholder="ej. Pizzas, Hamburguesas"
           />
+
+          <div>
+            <label className="label">Tipo de producto *</label>
+            <select
+              value={formData.category_type}
+              onChange={(e) =>
+                setFormData({ ...formData, category_type: e.target.value as any })
+              }
+              className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
+              required
+            >
+              <option value="food">Alimento</option>
+              <option value="beverage">Bebida</option>
+              <option value="dessert">Postre</option>
+              <option value="coffee">Café</option>
+            </select>
+            <p className="text-xs text-text-secondary mt-1">
+              Para cálculo de KPIs (Mix de Ventas, Conversión, etc.)
+            </p>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
 
           <Input
             label="Precio base"

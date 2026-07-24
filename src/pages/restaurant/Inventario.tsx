@@ -408,6 +408,7 @@ const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
     cost_per_unit: "",
     notes: "",
     is_active: true,
+    is_protein: false,
   });
 
   useEffect(() => {
@@ -420,6 +421,7 @@ const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
         cost_per_unit: item.cost_per_unit?.toString() || "",
         notes: item.notes || "",
         is_active: item.is_active,
+        is_protein: item.is_protein || false,
       });
     } else {
       setFormData({
@@ -430,6 +432,7 @@ const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
         cost_per_unit: "",
         notes: "",
         is_active: true,
+        is_protein: false,
       });
     }
   }, [mode, item, isOpen]);
@@ -462,6 +465,7 @@ const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
         : undefined,
       notes: formData.notes || undefined,
       is_active: formData.is_active,
+      is_protein: formData.is_protein,
     };
 
     let success = false;
@@ -568,17 +572,36 @@ const InventoryItemModal: React.FC<InventoryItemModalProps> = ({
           rows={2}
         />
 
-        <label className="flex items-center space-x-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={formData.is_active}
-            onChange={(e) =>
-              setFormData({ ...formData, is_active: e.target.checked })
-            }
-            className="rounded border-border"
-          />
-          <span className="text-text">Activo</span>
-        </label>
+        <div className="space-y-2">
+          <label className="flex items-center space-x-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.is_active}
+              onChange={(e) =>
+                setFormData({ ...formData, is_active: e.target.checked })
+              }
+              className="rounded border-border"
+            />
+            <span className="text-text">Activo</span>
+          </label>
+
+          <label className="flex items-center space-x-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.is_protein}
+              onChange={(e) =>
+                setFormData({ ...formData, is_protein: e.target.checked })
+              }
+              className="rounded border-border"
+            />
+            <div>
+              <span className="text-text">Es una proteína</span>
+              <p className="text-xs text-text-secondary">
+                Marca esta opción si es carne, pescado, mariscos, etc. para rastrear mermas de proteínas
+              </p>
+            </div>
+          </label>
+        </div>
 
         <div className="flex gap-3">
           <Button type="button" variant="outline" onClick={onClose} fullWidth>

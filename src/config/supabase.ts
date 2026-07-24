@@ -138,3 +138,126 @@ export interface AdminUser {
   name?: string;
   created_at: string;
 }
+
+// Inventory Items
+export interface InventoryItem {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  unit: "gramos" | "kilogramos" | "litros" | "mililitros" | "unidades" | "piezas";
+  current_quantity: number;
+  alert_threshold: number;
+  cost_per_unit?: number;
+  is_protein?: boolean;
+  notes?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Menu Item Ingredients (junction table)
+export interface MenuItemIngredient {
+  id: string;
+  menu_item_id: string;
+  inventory_item_id: string;
+  quantity_used: number;
+  created_at: string;
+}
+
+export interface MenuItemIngredientWithDetails extends MenuItemIngredient {
+  inventory_item: InventoryItem;
+}
+
+// Restaurant Tables
+export interface RestaurantTable {
+  id: string;
+  restaurant_id: string;
+  table_number: string;
+  seat_capacity: number;
+  is_active: boolean;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Table Occupancy - REMOVED (KPI de Rotación de Sillas eliminado)
+// export interface TableOccupancy {
+//   id: string;
+//   restaurant_id: string;
+//   table_id: string;
+//   order_id?: string;
+//   seated_at: string;
+//   freed_at?: string;
+//   guest_count?: number;
+//   created_at: string;
+//   updated_at: string;
+// }
+
+// Protein Waste
+export interface ProteinWaste {
+  id: string;
+  restaurant_id: string;
+  inventory_item_id: string;
+  quantity_wasted: number;
+  waste_cost?: number;
+  reason?: string;
+  wasted_at: string;
+  created_at: string;
+}
+
+// KPI Data Types
+export interface GrossMarginByCategory {
+  [categoryType: string]: {
+    revenue: number;
+    cost: number;
+    margin_percentage: number;
+  };
+}
+
+export interface GrossMarginByItem {
+  item_id: string;
+  item_name: string;
+  revenue: number;
+  cost: number;
+  margin_percentage: number;
+  units_sold: number;
+}
+
+export interface SalesMix {
+  [categoryType: string]: {
+    revenue: number;
+    percentage: number;
+    transaction_count: number;
+  };
+}
+
+export interface RestaurantKPIs {
+  // Margen Bruto
+  gross_margin_percentage: number;
+  gross_margin_by_category: GrossMarginByCategory;
+  gross_margin_by_item: GrossMarginByItem[];
+
+  // Prime Cost
+  prime_cost_percentage: number;
+  cogs: number;
+  labor_cost: number;
+  total_revenue: number;
+
+  // Ticket Promedio
+  average_ticket: number;
+  total_transactions: number;
+
+  // Mermas de Proteínas
+  protein_waste_percentage: number;
+  total_protein_purchases: number;
+  total_protein_waste: number;
+
+  // Mix de Ventas
+  sales_mix: SalesMix;
+
+  // Conversión de Postres y Café
+  dessert_conversion_percentage: number;
+  coffee_conversion_percentage: number;
+  tickets_with_desserts: number;
+  tickets_with_coffee: number;
+}

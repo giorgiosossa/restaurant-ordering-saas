@@ -26,7 +26,8 @@ import {
   subscribeToMenuItems,
   createOrder,
 } from "../../services/restaurantService";
-import type { MenuItem, Order } from "../../config/supabase";
+import { getRestaurantTables } from "../../services/tableService";
+import type { MenuItem, Order, RestaurantTable } from "../../config/supabase";
 import {
   formatCurrency,
   formatDateTime,
@@ -692,6 +693,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [customerPhone, setCustomerPhone] = useState("");
   const [orderType, setOrderType] = useState<"table" | "takeaway">("table");
   const [tableNumber, setTableNumber] = useState("");
+  const [availableTables, setAvailableTables] = useState<RestaurantTable[]>([]);
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"now" | "cash_at_bar" | "terminal_at_table">("terminal_at_table");
   const [cashAmount, setCashAmount] = useState("");
@@ -736,6 +738,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       initializeOpenpay();
     }
   }, [isOpen]);
+
+  // Load available tables when modal opens
+  useEffect(() => {
+    if (isOpen && restaurantId) {
+      const loadTables = async () => {
+        const tables = await getRestaurantTables(restaurantId);
+        const activeTables = tables.filter(t => t.is_active);
+        setAvailableTables(activeTables);
+      };
+      loadTables();
+    }
+  }, [isOpen, restaurantId]);
 
   // Generate a unique 4-digit payment code for the day (from database)
   const generatePaymentCode = async (restaurantId: string): Promise<string> => {
@@ -1244,13 +1258,27 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         {/* Table Number (only for table orders) */}
         {orderType === "table" && (
-          <Input
-            label="Número de mesa"
-            value={tableNumber}
-            onChange={(e) => setTableNumber(e.target.value)}
-            placeholder="Ingresa el número de tu mesa"
-            required
-          />
+          <div>
+            <label className="label">Número de mesa *</label>
+            <select
+              value={tableNumber}
+              onChange={(e) => setTableNumber(e.target.value)}
+              className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent bg-surface text-text"
+              required
+            >
+              <option value="">Selecciona tu mesa</option>
+              {availableTables.map((table) => (
+                <option key={table.id} value={table.table_number}>
+                  Mesa {table.table_number} ({table.seat_capacity} sillas)
+                </option>
+              ))}
+            </select>
+            {availableTables.length === 0 && (
+              <p className="text-xs text-text-secondary mt-1">
+                No hay mesas disponibles en este momento
+              </p>
+            )}
+          </div>
         )}
 
         {/* Customer Details */}

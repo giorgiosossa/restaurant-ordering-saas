@@ -6,8 +6,15 @@ import {
   Package,
   Calendar,
   Download,
+  Users,
+  Coffee,
+  UtensilsCrossed,
+  Percent,
+  ChefHat,
+  AlertCircle,
 } from "lucide-react";
 import { Card, Button, Loading } from "../../components/ui";
+import { KPICard } from "../../components/KPICard";
 import {
   LineChart,
   Line,
@@ -25,6 +32,8 @@ import {
 } from "recharts";
 import { supabase } from "../../config/supabase";
 import { formatCurrency } from "../../utils/helpers";
+import { calculateRestaurantKPIs } from "../../services/kpiService";
+import type { RestaurantKPIs } from "../../config/supabase";
 
 interface ReportData {
   totalRevenue: number;
@@ -38,14 +47,15 @@ interface ReportData {
 const Reports: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [kpiData, setKpiData] = useState<RestaurantKPIs | null>(null);
   const [dateRange, setDateRange] = useState<"7" | "30" | "90">("30");
 
   useEffect(() => {
     fetchReportData();
+    fetchKPIs();
   }, [dateRange]);
 
   const fetchReportData = async () => {
-    setLoading(true);
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
       if (!user.restaurant_id) return;
@@ -103,7 +113,7 @@ const Reports: React.FC = () => {
 
       const dailyRevenue = Object.entries(dailyData)
         .map(([date, data]) => ({ date, ...data }))
-        .slice(-14); // Last 14 days
+        .slice(-14);
 
       // Order type distribution
       const typeCounts: Record<string, number> = {};
@@ -126,19 +136,54 @@ const Reports: React.FC = () => {
       });
     } catch (error) {
       console.error("Error fetching report data:", error);
+    }
+  };
+
+  const fetchKPIs = async () => {
+    setLoading(true);
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!user.restaurant_id) return;
+
+      const daysAgo = parseInt(dateRange);
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysAgo);
+
+      const kpis = await calculateRestaurantKPIs(user.restaurant_id, {
+        start_date: startDate.toISOString(),
+        end_date: new Date().toISOString(),
+      });
+
+      setKpiData(kpis);
+    } catch (error) {
+      console.error("Error fetching KPIs:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const exportReport = () => {
-    if (!reportData) return;
+    if (!reportData || !kpiData) return;
 
     const csvContent = [
       ["Métrica", "Valor"],
       ["Ingresos Totales", formatCurrency(reportData.totalRevenue)],
       ["Total de Pedidos", reportData.totalOrders.toString()],
       ["Valor Promedio de Pedido", formatCurrency(reportData.avgOrderValue)],
+      [""],
+      ["=== KPIs CLAVE ==="],
+      ["Margen Bruto (%)", kpiData.gross_margin_percentage.toFixed(2)],
+      ["Prime Cost (%)", kpiData.prime_cost_percentage.toFixed(2)],
+      ["Ticket Promedio", formatCurrency(kpiData.average_ticket)],
+      ["Mermas de Proteínas (%)", kpiData.protein_waste_percentage.toFixed(2)],
+      [
+        "Conversión de Postres (%)",
+        kpiData.dessert_conversion_percentage.toFixed(2),
+      ],
+      [
+        "Conversión de Café (%)",
+        kpiData.coffee_conversion_percentage.toFixed(2),
+      ],
       [""],
       ["Platillos Más Vendidos", "Cantidad", "Ingresos"],
       ...reportData.topItems.map((item) => [
@@ -162,13 +207,34 @@ const Reports: React.FC = () => {
     return <Loading text="Cargando reportes..." />;
   }
 
-  if (!reportData) {
+  if (!reportData || !kpiData) {
     return (
-      <div className="text-center text-text-secondary">No hay datos disponibles</div>
+      <div className="text-center text-text-secondary">
+        No hay datos disponibles
+      </div>
     );
   }
 
   const COLORS = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"];
+
+  // Prepare sales mix data for chart
+  const salesMixData = Object.entries(kpiData.sales_mix || {}).map(
+    ([type, data]) => ({
+      name: type === "food" ? "Alimentos" : type === "beverage" ? "Bebidas" : type === "dessert" ? "Postres" : "Café",
+      value: data.revenue,
+      percentage: data.percentage,
+    })
+  );
+
+  // Prepare margin by category data for chart
+  const marginByCategoryData = Object.entries(
+    kpiData.gross_margin_by_category || {}
+  ).map(([type, data]) => ({
+    name: type === "food" ? "Alimentos" : type === "beverage" ? "Bebidas" : type === "dessert" ? "Postres" : "Café",
+    margin: data.margin_percentage,
+    revenue: data.revenue,
+    cost: data.cost,
+  }));
 
   return (
     <div className="space-y-6">
@@ -176,10 +242,10 @@ const Reports: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-text mb-2">
-            Reportes y Analítica
+            Reportes y KPIs
           </h2>
           <p className="text-text-secondary">
-            Da seguimiento a tus ventas y tendencias
+            Analiza el rendimiento de tu restaurante con indicadores clave
           </p>
         </div>
         <div className="flex gap-3">
@@ -202,63 +268,96 @@ const Reports: React.FC = () => {
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-success/10 rounded-lg">
-              <DollarSign className="w-6 h-6 text-success" />
-            </div>
-            <TrendingUp className="w-5 h-5 text-success" />
-          </div>
-          <div className="text-2xl font-bold text-text mb-1">
-            {formatCurrency(reportData.totalRevenue)}
-          </div>
-          <p className="text-text-secondary text-sm">Ingresos Totales</p>
-        </Card>
+      {/* Primary KPIs */}
+      <div>
+        <h3 className="text-lg font-bold text-text mb-4">
+          Indicadores Principales
+        </h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KPICard
+            title="Ingresos Totales"
+            value={reportData.totalRevenue}
+            format="currency"
+            icon={DollarSign}
+            iconColor="text-success"
+            subtitle={`${reportData.totalOrders} pedidos`}
+          />
 
-        <Card>
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-accent/10 rounded-lg">
-              <ShoppingBag className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold text-text mb-1">
-            {reportData.totalOrders}
-          </div>
-          <p className="text-text-secondary text-sm">Total de Pedidos</p>
-        </Card>
+          <KPICard
+            title="Ticket Promedio"
+            value={kpiData.average_ticket}
+            format="currency"
+            icon={ShoppingBag}
+            iconColor="text-accent"
+            subtitle={`${kpiData.total_transactions} transacciones`}
+          />
 
-        <Card>
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-accent-secondary/10 rounded-lg">
-              <DollarSign className="w-6 h-6 text-accent-secondary" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold text-text mb-1">
-            {formatCurrency(reportData.avgOrderValue)}
-          </div>
-          <p className="text-text-secondary text-sm">Valor Promedio de Pedido</p>
-        </Card>
+          <KPICard
+            title="Margen Bruto"
+            value={kpiData.gross_margin_percentage}
+            format="percentage"
+            icon={TrendingUp}
+            iconColor="text-success"
+            subtitle="Utilidad sobre ventas"
+          />
 
-        <Card>
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-warning/10 rounded-lg">
-              <Calendar className="w-6 h-6 text-warning" />
-            </div>
-          </div>
-          <div className="text-2xl font-bold text-text mb-1">
-            {dateRange} Días
-          </div>
-          <p className="text-text-secondary text-sm">Periodo del Reporte</p>
-        </Card>
+          <KPICard
+            title="Prime Cost"
+            value={kpiData.prime_cost_percentage}
+            format="percentage"
+            icon={ChefHat}
+            iconColor={
+              kpiData.prime_cost_percentage > 65 ? "text-error" : "text-warning"
+            }
+            subtitle="COGS + Mano de obra"
+          />
+        </div>
       </div>
 
-      {/* Charts */}
+      {/* Operational KPIs */}
+      <div>
+        <h3 className="text-lg font-bold text-text mb-4">
+          Indicadores Operativos
+        </h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <KPICard
+            title="Conversión de Postres"
+            value={kpiData.dessert_conversion_percentage}
+            format="percentage"
+            icon={UtensilsCrossed}
+            iconColor="text-accent-secondary"
+            subtitle={`${kpiData.tickets_with_desserts} tickets con postres`}
+          />
+
+          <KPICard
+            title="Conversión de Café"
+            value={kpiData.coffee_conversion_percentage}
+            format="percentage"
+            icon={Coffee}
+            iconColor="text-warning"
+            subtitle={`${kpiData.tickets_with_coffee} tickets con café`}
+          />
+
+          <KPICard
+            title="Mermas de Proteínas"
+            value={kpiData.protein_waste_percentage}
+            format="percentage"
+            icon={AlertCircle}
+            iconColor={
+              kpiData.protein_waste_percentage > 5 ? "text-error" : "text-success"
+            }
+            subtitle={formatCurrency(kpiData.total_protein_waste) + " desperdiciado"}
+          />
+        </div>
+      </div>
+
+      {/* Charts Section */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Revenue Trend */}
         <Card>
-          <h3 className="text-lg font-bold text-text mb-4">Tendencia de Ingresos</h3>
+          <h3 className="text-lg font-bold text-text mb-4">
+            Tendencia de Ingresos
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={reportData.dailyRevenue}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -281,6 +380,61 @@ const Reports: React.FC = () => {
                 name="Ingresos"
               />
             </LineChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Sales Mix: Food vs Beverages */}
+        <Card>
+          <h3 className="text-lg font-bold text-text mb-4">
+            Mix de Ventas (Alimentos vs Bebidas)
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={salesMixData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={(entry: any) => `${entry.name}: ${entry.percentage.toFixed(1)}%`}
+                outerRadius={100}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {salesMixData.map((_entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value: number) => formatCurrency(value)} />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Margin by Category */}
+        <Card>
+          <h3 className="text-lg font-bold text-text mb-4">
+            Margen Bruto por Categoría
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={marginByCategoryData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#fff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                }}
+                formatter={(value: number, name: string) =>
+                  name === "margin" ? `${value.toFixed(2)}%` : formatCurrency(value)
+                }
+              />
+              <Legend />
+              <Bar dataKey="margin" fill="#4ECDC4" name="Margen (%)" />
+            </BarChart>
           </ResponsiveContainer>
         </Card>
 
@@ -319,7 +473,9 @@ const Reports: React.FC = () => {
       {/* Top Items */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-text">Platillos Más Vendidos</h3>
+          <h3 className="text-lg font-bold text-text">
+            Platillos Más Vendidos (Por Ingresos)
+          </h3>
           <Package className="w-5 h-5 text-accent" />
         </div>
 
@@ -329,30 +485,42 @@ const Reports: React.FC = () => {
           </p>
         ) : (
           <div className="space-y-3">
-            {reportData.topItems.map((item, index) => (
-              <div
-                key={item.name}
-                className="flex items-center justify-between p-4 bg-bg-subtle rounded-lg hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center justify-center w-10 h-10 bg-accent rounded-full text-white font-bold">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-text">{item.name}</div>
-                    <div className="text-sm text-text-secondary">
-                      {item.count} pedidos
+            {reportData.topItems.map((item, index) => {
+              // Find margin data for this item
+              const itemMargin = kpiData.gross_margin_by_item?.find(
+                (i) => i.item_name === item.name
+              );
+
+              return (
+                <div
+                  key={item.name}
+                  className="flex items-center justify-between p-4 bg-bg-subtle rounded-lg hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center space-x-4 flex-1">
+                    <div className="flex items-center justify-center w-10 h-10 bg-accent rounded-full text-white font-bold">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-text">{item.name}</div>
+                      <div className="text-sm text-text-secondary">
+                        {item.count} pedidos
+                        {itemMargin && (
+                          <span className="ml-3 text-success">
+                            • Margen: {itemMargin.margin_percentage.toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-success">
-                    {formatCurrency(item.revenue)}
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-success">
+                      {formatCurrency(item.revenue)}
+                    </div>
+                    <div className="text-xs text-text-secondary">Ingresos</div>
                   </div>
-                  <div className="text-xs text-text-secondary">Ingresos</div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
@@ -376,6 +544,52 @@ const Reports: React.FC = () => {
             <Bar dataKey="orders" fill="#4ECDC4" name="Pedidos" />
           </BarChart>
         </ResponsiveContainer>
+      </Card>
+
+      {/* KPI Explanation */}
+      <Card className="p-6">
+        <h3 className="text-lg font-bold text-text mb-4">
+          Acerca de los KPIs
+        </h3>
+        <div className="grid md:grid-cols-2 gap-6 text-sm">
+          <div>
+            <h4 className="font-semibold text-text mb-2">Margen Bruto</h4>
+            <p className="text-text-secondary">
+              Porcentaje de utilidad después de restar el costo de los ingredientes.
+              Fórmula: ((Ventas - Costo) / Ventas) × 100
+            </p>
+          </div>
+          <div>
+            <h4 className="font-semibold text-text mb-2">Prime Cost</h4>
+            <p className="text-text-secondary">
+              Suma del costo de materia prima (COGS) más el costo de personal.
+              Ideal: {'<'}60%. Fórmula: ((COGS + Mano de Obra) / Ventas) × 100
+            </p>
+          </div>
+          <div>
+            <h4 className="font-semibold text-text mb-2">Ticket Promedio</h4>
+            <p className="text-text-secondary">
+              Valor promedio de cada transacción. Mayor ticket promedio indica mayor
+              gasto por cliente.
+            </p>
+          </div>
+          <div>
+            <h4 className="font-semibold text-text mb-2">Mermas de Proteínas</h4>
+            <p className="text-text-secondary">
+              Porcentaje de proteínas desperdiciadas vs compradas. Monitorea para
+              reducir pérdidas.
+            </p>
+          </div>
+          <div>
+            <h4 className="font-semibold text-text mb-2">
+              Conversión de Postres/Café
+            </h4>
+            <p className="text-text-secondary">
+              Porcentaje de tickets que incluyen postres o café. Indica oportunidades
+              de venta adicional.
+            </p>
+          </div>
+        </div>
       </Card>
     </div>
   );
