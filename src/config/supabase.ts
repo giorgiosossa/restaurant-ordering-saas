@@ -205,6 +205,50 @@ export interface ProteinWaste {
   created_at: string;
 }
 
+// Employee Roles (para Comandas)
+export type EmployeeRole = "caja" | "cocina" | "mesero";
+
+// Employees (Sistema Unificado: Sueldo + PIN + Roles)
+export interface Employee {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  position?: string;
+  employment_type: "full_time" | "part_time" | "hourly";
+  monthly_salary?: number;
+  hourly_rate?: number;
+  hours_per_week?: number;
+  is_active: boolean;
+  notes?: string;
+  pin?: string; // PIN de 4 dígitos para acceso a Comandas
+  roles: EmployeeRole[]; // Roles para sistema de Comandas
+  created_at: string;
+  updated_at: string;
+}
+
+// Employee Shifts (Turnos de trabajo)
+export interface EmployeeShift {
+  id: string;
+  employee_id: string;
+  restaurant_id: string;
+  started_at: string;
+  ended_at?: string;
+  created_at: string;
+}
+
+// Order Events (Tracking de eventos)
+export type OrderEventType = "accepted" | "preparing" | "ready" | "completed" | "cancelled";
+
+export interface OrderEvent {
+  id: string;
+  restaurant_id: string;
+  order_id: string;
+  employee_id?: string;
+  employee_shift_id?: string;
+  event_type: OrderEventType;
+  created_at: string;
+}
+
 // KPI Data Types
 export interface GrossMarginByCategory {
   [categoryType: string]: {
