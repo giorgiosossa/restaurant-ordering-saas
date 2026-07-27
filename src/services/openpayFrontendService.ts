@@ -275,6 +275,60 @@ export async function createCodiPayment(
 }
 
 /**
+ * Crear cargo con transferencia bancaria (SPEI)
+ */
+export async function createBankTransferPayment(
+  orderId: string,
+  amount: number,
+  description: string,
+  customerName: string,
+  customerEmail: string,
+  dueDate?: string
+) {
+  try {
+    console.log('[OPENPAY] Creating bank transfer payment...');
+
+    const { data, error } = await supabase.functions.invoke('openpay-bank-transfer', {
+      body: {
+        orderId,
+        amount,
+        description,
+        customerName,
+        customerEmail,
+        dueDate,
+      },
+    });
+
+    if (error) {
+      console.error('[OPENPAY] Bank transfer error:', error);
+
+      // Try to get more details from the response
+      if (error.context) {
+        const errorData = error.context;
+        throw new Error(errorData.error || error.message || 'Error al generar la transferencia bancaria');
+      }
+
+      throw new Error(error.message || 'Error al generar la transferencia bancaria');
+    }
+
+    // Check if data contains an error field
+    if (data && data.error) {
+      throw new Error(data.error);
+    }
+
+    if (data && !data.success) {
+      throw new Error(data.error || 'Error al generar la transferencia bancaria');
+    }
+
+    console.log('[OPENPAY] Bank transfer payment created:', data);
+    return data;
+  } catch (error) {
+    console.error('[OPENPAY] Error creating bank transfer payment:', error);
+    throw error;
+  }
+}
+
+/**
  * Validar número de tarjeta (algoritmo de Luhn)
  */
 export function validateCardNumber(cardNumber: string): boolean {

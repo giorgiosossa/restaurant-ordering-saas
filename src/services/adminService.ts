@@ -246,6 +246,143 @@ export const getRestaurantUsageStats = async (): Promise<
   });
 };
 
+// Get restaurant usage stats with date filters
+export interface RestaurantUsageStatsFiltered extends RestaurantUsageStats {
+  monthlyBreakdown?: MonthlyStats[];
+}
+
+export interface MonthlyStats {
+  month: string; // YYYY-MM
+  orderCount: number;
+  revenue: number;
+  amountOwed: number;
+}
+
+export interface UsageStatsFilters {
+  startDate?: string; // ISO date string
+  endDate?: string; // ISO date string
+  period?: "day" | "week" | "month" | "year" | "all";
+  restaurantId?: string;
+  includeMonthlyBreakdown?: boolean;
+}
+
+export const getRestaurantUsageStatsFiltered = async (
+  filters: UsageStatsFilters = {}
+): Promise<RestaurantUsageStatsFiltered[]> => {
+  const { startDate, endDate, period, restaurantId, includeMonthlyBreakdown } = filters;
+
+  // Calculate date range based on period
+  let dateFrom: string | undefined = startDate;
+  let dateTo: string | undefined = endDate;
+
+  if (period && !startDate && !endDate) {
+    const now = new Date();
+    dateTo = now.toISOString();
+
+    switch (period) {
+      case "day":
+        dateFrom = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+        break;
+      case "week":
+        dateFrom = new Date(now.setDate(now.getDate() - 7)).toISOString();
+        break;
+      case "month":
+        dateFrom = new Date(now.setMonth(now.getMonth() - 1)).toISOString();
+        break;
+      case "year":
+        dateFrom = new Date(now.setFullYear(now.getFullYear() - 1)).toISOString();
+        break;
+      case "all":
+      default:
+        dateFrom = undefined;
+        dateTo = undefined;
+        break;
+    }
+  }
+
+  // Build restaurant query
+  let restaurantQuery = supabase
+    .from("restaurants")
+    .select(
+      "id, name, slug, status, is_active, billing_type, commission_rate, monthly_fee"
+    )
+    .order("name", { ascending: true });
+
+  if (restaurantId) {
+    restaurantQuery = restaurantQuery.eq("id", restaurantId);
+  }
+
+  // Build orders query
+  let ordersQuery = supabase
+    .from("orders")
+    .select("restaurant_id, total, status, created_at")
+    .not("status", "in", "(cancelled,rejected)");
+
+  if (dateFrom) {
+    ordersQuery = ordersQuery.gte("created_at", dateFrom);
+  }
+  if (dateTo) {
+    ordersQuery = ordersQuery.lte("created_at", dateTo);
+  }
+
+  const [{ data: restaurants, error: restError }, { data: orders, error: ordersError }] =
+    await Promise.all([restaurantQuery, ordersQuery]);
+
+  if (restError || !restaurants) {
+    console.error("Error fetching filtered restaurant usage stats:", restError, ordersError);
+    return [];
+  }
+
+  return restaurants.map((r) => {
+    const restaurantOrders = (orders || []).filter(
+      (o) => o.restaurant_id === r.id
+    );
+    const orderCount = restaurantOrders.length;
+    const revenue = restaurantOrders.reduce(
+      (sum, o) => sum + (o.total || 0),
+      0
+    );
+    const lastOrderAt = restaurantOrders.reduce<string | null>(
+      (latest, o) => (!latest || o.created_at > latest ? o.created_at : latest),
+      null
+    );
+    const amountOwed =
+      r.billing_type === "fixed"
+        ? r.monthly_fee
+        : revenue * (r.commission_rate / 100);
+
+    let monthlyBreakdown: MonthlyStats[] | undefined;
+
+    if (includeMonthlyBreakdown) {
+      // Group orders by month
+      const monthlyMap = new Map<string, { orders: number; revenue: number }>();
+
+      restaurantOrders.forEach((order) => {
+        const month = order.created_at.substring(0, 7); // YYYY-MM
+        const current = monthlyMap.get(month) || { orders: 0, revenue: 0 };
+        monthlyMap.set(month, {
+          orders: current.orders + 1,
+          revenue: current.revenue + (order.total || 0),
+        });
+      });
+
+      monthlyBreakdown = Array.from(monthlyMap.entries())
+        .map(([month, data]) => ({
+          month,
+          orderCount: data.orders,
+          revenue: data.revenue,
+          amountOwed:
+            r.billing_type === "fixed"
+              ? r.monthly_fee
+              : data.revenue * (r.commission_rate / 100),
+        }))
+        .sort((a, b) => b.month.localeCompare(a.month)); // Most recent first
+    }
+
+    return { ...r, orderCount, revenue, amountOwed, lastOrderAt, monthlyBreakdown };
+  });
+};
+
 // Update a restaurant's billing plan (commission % or fixed monthly fee)
 export const updateRestaurantBilling = async (
   restaurantId: string,

@@ -38,7 +38,9 @@ const getStoredSession = (): ActiveSession | null => {
   const stored = localStorage.getItem(SESSION_STORAGE_KEY);
   if (!stored) return null;
   try {
-    return JSON.parse(stored) as ActiveSession;
+    const parsed = JSON.parse(stored) as ActiveSession;
+    // Ensure backward compatibility - if it has authType, it's from new login flow
+    return parsed;
   } catch {
     return null;
   }
@@ -91,6 +93,8 @@ export const EmployeeSessionProvider: React.FC<{ children: React.ReactNode }> = 
       await endShift(session.shiftId);
     }
     setSession(null);
+    // Also redirect to login after logout
+    window.location.href = "/login";
   };
 
   return (

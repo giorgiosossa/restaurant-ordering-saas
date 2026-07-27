@@ -37,6 +37,17 @@ const RestaurantDashboard: React.FC = () => {
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
+    const employeeSession = localStorage.getItem("employee_session");
+
+    // Check if employee is trying to access - redirect to Comandas only
+    if (employeeSession && !userData) {
+      const parsedEmployee = JSON.parse(employeeSession);
+      if (parsedEmployee.authType === "employee") {
+        navigate("/comandas", { replace: true });
+        return;
+      }
+    }
+
     if (!userData) {
       navigate("/login");
     } else {
@@ -52,6 +63,7 @@ const RestaurantDashboard: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("user");
+    localStorage.removeItem("employee_session");
     navigate("/login");
   };
 

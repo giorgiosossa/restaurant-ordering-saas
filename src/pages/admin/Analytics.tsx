@@ -6,6 +6,8 @@ import {
   Store as StoreIcon,
   Settings,
   Search,
+  Calendar,
+  BarChart3,
 } from "lucide-react";
 import {
   Card,
@@ -17,35 +19,49 @@ import {
   Alert,
 } from "../../components/ui";
 import {
-  getRestaurantUsageStats,
+  getRestaurantUsageStatsFiltered,
   updateRestaurantBilling,
-  type RestaurantUsageStats,
+  type RestaurantUsageStatsFiltered,
+  type UsageStatsFilters,
 } from "../../services/adminService";
 import { formatCurrency, formatDateTime } from "../../utils/helpers";
 
 const Analytics: React.FC = () => {
-  const [stats, setStats] = useState<RestaurantUsageStats[]>([]);
+  const [stats, setStats] = useState<RestaurantUsageStatsFiltered[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selected, setSelected] = useState<RestaurantUsageStats | null>(null);
+  const [selected, setSelected] = useState<RestaurantUsageStatsFiltered | null>(null);
   const [showBillingModal, setShowBillingModal] = useState(false);
+  const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState<string | null>(null);
 
-  const loadStats = async () => {
+  // Filters
+  const [period, setPeriod] = useState<"day" | "week" | "month" | "year" | "all">("all");
+  const [customDateRange, setCustomDateRange] = useState<{
+    startDate: string;
+    endDate: string;
+  }>({ startDate: "", endDate: "" });
+  const [showCustomDateModal, setShowCustomDateModal] = useState(false);
+
+  const loadStats = async (filters?: UsageStatsFilters) => {
     setLoading(true);
-    const data = await getRestaurantUsageStats();
+    const data = await getRestaurantUsageStatsFiltered({
+      period,
+      includeMonthlyBreakdown: true,
+      ...filters,
+    });
     setStats(data);
     setLoading(false);
   };
 
   useEffect(() => {
     loadStats();
-  }, []);
+  }, [period]);
 
   const filtered = stats.filter((r) =>
     r.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totals = stats.reduce(
+  const totals = filtered.reduce(
     (acc, r) => ({
       orders: acc.orders + r.orderCount,
       revenue: acc.revenue + r.revenue,
@@ -53,6 +69,26 @@ const Analytics: React.FC = () => {
     }),
     { orders: 0, revenue: 0, owed: 0 }
   );
+
+  const handleCustomDateApply = () => {
+    if (customDateRange.startDate && customDateRange.endDate) {
+      loadStats({
+        startDate: new Date(customDateRange.startDate).toISOString(),
+        endDate: new Date(customDateRange.endDate + "T23:59:59").toISOString(),
+        includeMonthlyBreakdown: true,
+      });
+      setShowCustomDateModal(false);
+      setPeriod("all"); // Reset period when using custom dates
+    }
+  };
+
+  const periodLabels = {
+    day: "Hoy",
+    week: "Última semana",
+    month: "Último mes",
+    year: "Último año",
+    all: "Todo el tiempo",
+  };
 
   if (loading) {
     return <Loading text="Cargando estadísticas de uso..." />;
@@ -69,6 +105,32 @@ const Analytics: React.FC = () => {
           Cuánto está usando la plataforma cada restaurante, y cuánto te debe
         </p>
       </div>
+
+      {/* Filters */}
+      <Card className="!p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 flex flex-wrap gap-2">
+            {(["day", "week", "month", "year", "all"] as const).map((p) => (
+              <Button
+                key={p}
+                variant={period === p ? "primary" : "outline"}
+                size="sm"
+                onClick={() => setPeriod(p)}
+              >
+                {periodLabels[p]}
+              </Button>
+            ))}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<Calendar className="w-4 h-4" />}
+            onClick={() => setShowCustomDateModal(true)}
+          >
+            Rango personalizado
+          </Button>
+        </div>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid sm:grid-cols-3 gap-6">
@@ -142,65 +204,134 @@ const Analytics: React.FC = () => {
         <div className="grid gap-4">
           {filtered.map((r) => (
             <Card key={r.id} className="hover:shadow-lg transition-shadow">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-lg font-bold text-text">{r.name}</h3>
-                    {r.status === "active" ? (
-                      <Badge variant="success">Activo</Badge>
-                    ) : r.status === "blocked" ? (
-                      <Badge variant="error">Bloqueado</Badge>
-                    ) : (
-                      <Badge variant="warning">{r.status}</Badge>
-                    )}
-                    <Badge variant="neutral">
-                      {r.billing_type === "fixed"
-                        ? `Renta fija ${formatCurrency(r.monthly_fee)}/mes`
-                        : `Comisión ${r.commission_rate}%`}
-                    </Badge>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-lg font-bold text-text">{r.name}</h3>
+                      {r.status === "active" ? (
+                        <Badge variant="success">Activo</Badge>
+                      ) : r.status === "blocked" ? (
+                        <Badge variant="error">Bloqueado</Badge>
+                      ) : (
+                        <Badge variant="warning">{r.status}</Badge>
+                      )}
+                      <Badge variant="neutral">
+                        {r.billing_type === "fixed"
+                          ? `Renta fija ${formatCurrency(r.monthly_fee)}/mes`
+                          : `Comisión ${r.commission_rate}%`}
+                      </Badge>
+                    </div>
+
+                    <div className="grid sm:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <p className="text-text-secondary">Pedidos</p>
+                        <p className="font-semibold text-text">
+                          {r.orderCount}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-text-secondary">Ingresos generados</p>
+                        <p className="font-semibold text-text">
+                          {formatCurrency(r.revenue)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-text-secondary">A cobrar</p>
+                        <p className="font-semibold text-accent">
+                          {formatCurrency(r.amountOwed)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-text-secondary">Última actividad</p>
+                        <p className="font-semibold text-text">
+                          {r.lastOrderAt
+                            ? formatDateTime(r.lastOrderAt)
+                            : "Sin pedidos"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid sm:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <p className="text-text-secondary">Pedidos</p>
-                      <p className="font-semibold text-text">
-                        {r.orderCount}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-text-secondary">Ingresos generados</p>
-                      <p className="font-semibold text-text">
-                        {formatCurrency(r.revenue)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-text-secondary">A cobrar</p>
-                      <p className="font-semibold text-accent">
-                        {formatCurrency(r.amountOwed)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-text-secondary">Última actividad</p>
-                      <p className="font-semibold text-text">
-                        {r.lastOrderAt
-                          ? formatDateTime(r.lastOrderAt)
-                          : "Sin pedidos"}
-                      </p>
-                    </div>
+                  <div className="flex gap-2">
+                    {r.monthlyBreakdown && r.monthlyBreakdown.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={<BarChart3 className="w-4 h-4" />}
+                        onClick={() =>
+                          setShowMonthlyBreakdown(
+                            showMonthlyBreakdown === r.id ? null : r.id
+                          )
+                        }
+                      >
+                        {showMonthlyBreakdown === r.id ? "Ocultar" : "Ver"} por mes
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<Settings className="w-4 h-4" />}
+                      onClick={() => {
+                        setSelected(r);
+                        setShowBillingModal(true);
+                      }}
+                    >
+                      Editar plan
+                    </Button>
                   </div>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<Settings className="w-4 h-4" />}
-                  onClick={() => {
-                    setSelected(r);
-                    setShowBillingModal(true);
-                  }}
-                >
-                  Editar plan
-                </Button>
+                {/* Monthly Breakdown */}
+                {showMonthlyBreakdown === r.id && r.monthlyBreakdown && (
+                  <div className="pt-4 border-t border-border">
+                    <h4 className="text-sm font-semibold text-text mb-3">
+                      Desglose mensual
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-text-secondary border-b border-border">
+                            <th className="pb-2 font-medium">Mes</th>
+                            <th className="pb-2 font-medium text-right">Pedidos</th>
+                            <th className="pb-2 font-medium text-right">Ingresos</th>
+                            <th className="pb-2 font-medium text-right">A cobrar</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {r.monthlyBreakdown.map((month) => {
+                            const [year, monthNum] = month.month.split("-");
+                            const monthName = new Date(
+                              parseInt(year),
+                              parseInt(monthNum) - 1
+                            ).toLocaleDateString("es-MX", {
+                              month: "long",
+                              year: "numeric",
+                            });
+
+                            return (
+                              <tr
+                                key={month.month}
+                                className="border-b border-border/50 last:border-0"
+                              >
+                                <td className="py-2 capitalize">{monthName}</td>
+                                <td className="py-2 text-right font-medium">
+                                  {month.orderCount}
+                                </td>
+                                <td className="py-2 text-right font-medium">
+                                  {formatCurrency(month.revenue)}
+                                </td>
+                                <td className="py-2 text-right font-medium text-accent">
+                                  {formatCurrency(month.amountOwed)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           ))}
@@ -220,6 +351,49 @@ const Analytics: React.FC = () => {
           loadStats();
         }}
       />
+
+      {/* Custom Date Range Modal */}
+      <Modal
+        isOpen={showCustomDateModal}
+        onClose={() => setShowCustomDateModal(false)}
+        title="Seleccionar rango de fechas"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Fecha inicial"
+            type="date"
+            value={customDateRange.startDate}
+            onChange={(e) =>
+              setCustomDateRange({ ...customDateRange, startDate: e.target.value })
+            }
+          />
+          <Input
+            label="Fecha final"
+            type="date"
+            value={customDateRange.endDate}
+            onChange={(e) =>
+              setCustomDateRange({ ...customDateRange, endDate: e.target.value })
+            }
+          />
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowCustomDateModal(false)}
+              fullWidth
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCustomDateApply}
+              disabled={!customDateRange.startDate || !customDateRange.endDate}
+              fullWidth
+            >
+              Aplicar
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -227,7 +401,7 @@ const Analytics: React.FC = () => {
 // Billing Plan Edit Modal
 interface BillingModalProps {
   isOpen: boolean;
-  restaurant: RestaurantUsageStats | null;
+  restaurant: RestaurantUsageStatsFiltered | null;
   onClose: () => void;
   onSaved: () => void;
 }

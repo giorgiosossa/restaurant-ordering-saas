@@ -39,7 +39,6 @@ import { supabase } from "../../config/supabase";
 import { formatCurrency, formatDateTime } from "../../utils/helpers";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useEmployeeSession } from "../../contexts/EmployeeSessionContext";
-import PinPad from "./PinPad";
 
 const VISIBLE_ITEMS = 2;
 
@@ -56,7 +55,8 @@ const ALL_TABS: FilterTab[] = ["pending", "preparing", "ready"];
 const Comandas: React.FC = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { session, clockOut } = useEmployeeSession();
+  const { session: contextSession, clockOut } = useEmployeeSession();
+  const [session, setSession] = useState<any>(null);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,14 +105,42 @@ const Comandas: React.FC = () => {
   const hideMoney = filter === "preparing";
 
   useEffect(() => {
+    // Check for both admin user and employee session
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (!user.restaurant_id) {
+    const employeeSession = JSON.parse(localStorage.getItem("employee_session") || "{}");
+
+    const resId = user.restaurant_id || employeeSession.restaurantId;
+
+    if (!resId) {
       navigate("/login");
       return;
     }
-    setRestaurantId(user.restaurant_id);
 
-    const subscription = subscribeToOrders(user.restaurant_id, (data) => {
+    // Set session from localStorage or context
+    if (employeeSession.employeeId) {
+      // Employee session from new login flow
+      setSession({
+        employeeId: employeeSession.employeeId,
+        name: employeeSession.name,
+        roles: employeeSession.roles,
+        shiftId: employeeSession.shiftId,
+        isAdminBypass: employeeSession.isAdminBypass || false,
+      });
+    } else if (contextSession) {
+      // Session from old PinPad flow (backward compatibility)
+      setSession(contextSession);
+    } else if (user.restaurant_id && user.authType === "admin") {
+      // Admin accessing Comandas - give full access
+      setSession({
+        name: "Administrador",
+        roles: ["caja", "cocina", "mesero"],
+        isAdminBypass: true,
+      });
+    }
+
+    setRestaurantId(resId);
+
+    const subscription = subscribeToOrders(resId, (data) => {
       // Filter only active orders (not completed or cancelled)
       const activeOrders = data.filter(
         (order) => !["completed", "cancelled", "rejected"].includes(order.status)
@@ -131,7 +159,7 @@ const Comandas: React.FC = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [soundEnabled, lastOrderCount]);
+  }, [soundEnabled, lastOrderCount, contextSession, navigate]);
 
   // Force a re-render every second so the elapsed-time labels tick live
   const [, setTick] = useState(0);
@@ -424,11 +452,9 @@ const Comandas: React.FC = () => {
   }
 
   if (!session) {
-    return (
-      <div className={theme === "dark" ? "dark" : ""}>
-        <PinPad restaurantId={restaurantId} />
-      </div>
-    );
+    // No session found - redirect to login
+    navigate("/login");
+    return null;
   }
 
   return (
@@ -646,6 +672,8 @@ const Comandas: React.FC = () => {
                     <h2 className="text-base font-semibold text-neutral-900 dark:text-white">
                       {selectedOrderForPayment.payment_type === "cash_at_bar"
                         ? "Validar Pago en Barra"
+                        : selectedOrderForPayment.payment_type === "bank_transfer"
+                        ? "Confirmar Pago por Transferencia"
                         : "Confirmar Pago con Terminal"}
                     </h2>
                     <p className="text-xs text-neutral-500 mt-0.5">
@@ -721,6 +749,20 @@ const Comandas: React.FC = () => {
                     />
                     {paymentError && (
                       <p className="mt-2 text-sm text-red-600 dark:text-red-400">{paymentError}</p>
+                    )}
+                  </div>
+                ) : selectedOrderForPayment.payment_type === "bank_transfer" ? (
+                  <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/50 rounded-lg p-4">
+                    <p className="text-sm text-orange-900 dark:text-orange-200 font-medium">
+                      El pago por transferencia bancaria (SPEI) ha sido recibido. Confirma para enviar la orden a cocina.
+                    </p>
+                    {selectedOrderForPayment.bank_transfer_clabe && (
+                      <div className="mt-3 text-xs text-orange-700 dark:text-orange-300">
+                        <div>CLABE: {selectedOrderForPayment.bank_transfer_clabe}</div>
+                        {selectedOrderForPayment.bank_transfer_reference && (
+                          <div>Ref: {selectedOrderForPayment.bank_transfer_reference}</div>
+                        )}
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -1305,6 +1347,8 @@ const OrderCard: React.FC<OrderCardProps> = ({
   // Check if terminal payment (pending or not)
   const isTerminalPayment = order.payment_type === "terminal_at_table" && !order.payment_verified_at;
   const isCashAtBar = order.payment_type === "cash_at_bar";
+  const isBankTransfer = order.payment_type === "bank_transfer";
+  const isBankTransferPaid = isBankTransfer && order.payment_status === "paid";
 
   return (
     <div
@@ -1312,7 +1356,11 @@ const OrderCard: React.FC<OrderCardProps> = ({
         isBlocked
           ? isCashAtBar
             ? "border-yellow-500 dark:border-yellow-600 relative"
+            : isBankTransfer
+            ? "border-orange-500 dark:border-orange-600 relative"
             : "border-red-600 dark:border-red-700 relative"
+          : isBankTransferPaid
+          ? "border-orange-400 dark:border-orange-500 relative"
           : isTerminalPayment
           ? "border-red-600 dark:border-red-700 relative"
           : "border-neutral-200 dark:border-neutral-800/80 hover:border-neutral-300 dark:hover:border-neutral-700"
@@ -1322,13 +1370,21 @@ const OrderCard: React.FC<OrderCardProps> = ({
       {isBlocked && (
         <div
           className={`absolute top-0 right-0 text-white px-3 py-1 rounded-bl-lg flex items-center gap-1.5 z-10 ${
-            isCashAtBar ? "bg-yellow-500" : "bg-red-600"
+            isCashAtBar ? "bg-yellow-500" : isBankTransfer ? "bg-orange-500" : "bg-red-600"
           }`}
         >
           <Lock className="w-3.5 h-3.5" />
           <span className="text-xs font-bold">
-            {isCashAtBar ? "PAGO PENDIENTE" : "PAGO CON TERMINAL"}
+            {isCashAtBar ? "PAGO PENDIENTE" : isBankTransfer ? "TRANSFERENCIA PENDIENTE" : "PAGO CON TERMINAL"}
           </span>
+        </div>
+      )}
+
+      {/* Bank Transfer Paid Badge */}
+      {!isBlocked && isBankTransferPaid && (
+        <div className="absolute top-0 right-0 bg-orange-500 text-white px-3 py-1 rounded-bl-lg flex items-center gap-1.5 z-10">
+          <Banknote className="w-3.5 h-3.5" />
+          <span className="text-xs font-bold">PAGADO CON TRANSFERENCIA</span>
         </div>
       )}
 
@@ -1455,15 +1511,23 @@ const OrderCard: React.FC<OrderCardProps> = ({
               className={`w-full h-10 text-white text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${
                 order.payment_type === "cash_at_bar"
                   ? "bg-yellow-500 hover:bg-yellow-600"
+                  : order.payment_type === "bank_transfer"
+                  ? "bg-orange-500 hover:bg-orange-600"
                   : "bg-red-600 hover:bg-red-700"
               }`}
             >
               <Unlock className="w-5 h-5" />
-              {order.payment_type === "cash_at_bar" ? "Validar Pago en Barra" : "Confirmar Pago con Terminal"}
+              {order.payment_type === "cash_at_bar"
+                ? "Validar Pago en Barra"
+                : order.payment_type === "bank_transfer"
+                ? "Confirmar Transferencia"
+                : "Confirmar Pago con Terminal"}
             </button>
             <p className="text-xs text-center text-neutral-500 dark:text-neutral-400">
               {order.payment_type === "cash_at_bar"
                 ? "El cliente debe mostrar su código de pago"
+                : order.payment_type === "bank_transfer"
+                ? "El pago por transferencia ha sido recibido"
                 : "Lleva la terminal a la mesa y cobra"}
             </p>
           </>

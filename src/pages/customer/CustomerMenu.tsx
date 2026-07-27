@@ -13,6 +13,7 @@ import {
   Banknote,
   CreditCard,
   Smartphone,
+  Building2,
 } from "lucide-react";
 import {
   Card,
@@ -39,6 +40,7 @@ import {
   initOpenpay,
   tokenizeCard,
   processCardPayment,
+  createBankTransferPayment,
   formatCardNumber,
   validateCardNumber,
   getCardType,
@@ -98,6 +100,14 @@ const CustomerMenu: React.FC = () => {
       setLoading(false);
       return;
     }
+
+    console.log("[CustomerMenu] Restaurant data loaded:", data);
+    console.log("[CustomerMenu] Payment methods config:", {
+      card: data.payment_card_enabled,
+      terminal: data.payment_terminal_enabled,
+      cash_bar: data.payment_cash_bar_enabled,
+      openpay_id: data.openpay_customer_id,
+    });
 
     setRestaurant(data);
   };
@@ -691,17 +701,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [step, setStep] = useState<"form" | "confirm" | "ticket">("form");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [orderType, setOrderType] = useState<"table" | "takeaway">("table");
   const [tableNumber, setTableNumber] = useState("");
   const [availableTables, setAvailableTables] = useState<RestaurantTable[]>([]);
   const [notes, setNotes] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"now" | "cash_at_bar" | "terminal_at_table">("terminal_at_table");
+  const [paymentMethod, setPaymentMethod] = useState<"now" | "cash_at_bar" | "terminal_at_table" | "bank_transfer">("terminal_at_table");
   const [cashAmount, setCashAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
-  const [paymentCode, setPaymentCode] = useState<string>("");
 
   // Card payment states
   const [cardData, setCardData] = useState<CardData>({
@@ -750,6 +760,22 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       loadTables();
     }
   }, [isOpen, restaurantId]);
+
+  // Set default payment method based on what's enabled
+  useEffect(() => {
+    if (isOpen && restaurant) {
+      // Priority: terminal > cash_at_bar > bank_transfer > card (if Openpay configured)
+      if (restaurant.payment_terminal_enabled !== false) {
+        setPaymentMethod("terminal_at_table");
+      } else if (restaurant.payment_cash_bar_enabled !== false) {
+        setPaymentMethod("cash_at_bar");
+      } else if (restaurant.payment_bank_transfer_enabled !== false && restaurant.openpay_customer_id) {
+        setPaymentMethod("bank_transfer");
+      } else if (restaurant.payment_card_enabled !== false && restaurant.openpay_customer_id) {
+        setPaymentMethod("now");
+      }
+    }
+  }, [isOpen, restaurant]);
 
   // Generate a unique 4-digit payment code for the day (from database)
   const generatePaymentCode = async (restaurantId: string): Promise<string> => {
@@ -815,6 +841,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       }
       if (!cardData.cvv2 || cardData.cvv2.length < 3) {
         setError("Ingresa el CVV de la tarjeta");
+        return;
+      }
+    }
+
+    // Validate email if paying with bank transfer
+    if (paymentMethod === "bank_transfer") {
+      if (!customerEmail.trim()) {
+        setError("Ingresa tu email para recibir los datos de transferencia");
+        return;
+      }
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customerEmail)) {
+        setError("Ingresa un email válido");
         return;
       }
     }
@@ -892,11 +932,78 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         return; // Exit early after handling card payment
       }
 
+      // Process bank transfer payment if selected
+      if (paymentMethod === "bank_transfer") {
+        setCardProcessing(true);
+        try {
+          // Create order first to get order_id
+          const orderData = {
+            restaurant_id: restaurantId,
+            order_type: (orderType === "table" ? "qr" : "counter") as "qr" | "counter",
+            table_number: orderType === "table" ? tableNumber : undefined,
+            customer_name: customerName,
+            customer_phone: customerPhone || undefined,
+            items: cart.map((item) => ({
+              menu_item_id: item.id,
+              name: item.name,
+              quantity: item.quantity,
+              base_price: item.base_price,
+              selected_size: item.selectedSize,
+              selected_addons: item.selectedAddons,
+              item_total: item.itemTotal,
+            })),
+            subtotal,
+            tax: 0,
+            total,
+            customer_notes: notes,
+            payment_type: paymentMethod,
+            is_blocked: true, // Block until payment is confirmed
+            status: "pending" as const,
+            payment_status: "pending",
+          };
+
+          const { data: orderCreated, error: orderError } = await createOrder(orderData);
+          if (orderError || !orderCreated) {
+            throw new Error(orderError?.message || "Error al crear el pedido");
+          }
+
+          // Create bank transfer charge
+          const transferResult = await createBankTransferPayment(
+            orderCreated.order_number,
+            total,
+            `Pedido ${orderCreated.order_number} - ${restaurant?.name || 'Restaurante'}`,
+            customerName,
+            customerEmail
+          );
+
+          if (transferResult.success) {
+            // Update order with bank transfer data
+            const updatedOrder = {
+              ...orderCreated,
+              bank_transfer_clabe: transferResult.data.clabe,
+              bank_transfer_reference: transferResult.data.reference,
+              bank_transfer_agreement: transferResult.data.agreement,
+              bank_transfer_due_date: transferResult.data.dueDate,
+            };
+            setPlacedOrder(updatedOrder);
+            setStep("ticket");
+            console.log('[CustomerMenu] Bank transfer created successfully');
+          } else {
+            throw new Error(transferResult.error || 'Error al generar la transferencia bancaria');
+          }
+        } catch (error: any) {
+          setError(error.message || "Error al procesar la transferencia bancaria");
+          console.error('[CustomerMenu] Bank transfer error:', error);
+        } finally {
+          setCardProcessing(false);
+        }
+        return; // Exit early after handling bank transfer
+      }
+
       // Generate payment code if cash_at_bar
       let generatedCode = "";
       if (paymentMethod === "cash_at_bar") {
         generatedCode = await generatePaymentCode(restaurantId);
-        setPaymentCode(generatedCode);
       }
 
       // Determine if order should be blocked based on payment method
@@ -960,12 +1067,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     // Clear all form state
     setCustomerName("");
     setCustomerPhone("");
+    setCustomerEmail("");
     setTableNumber("");
     setNotes("");
     setOrderType("table");
     setPaymentMethod("terminal_at_table");
     setCashAmount("");
-    setPaymentCode("");
     setStep("form");
     setPlacedOrder(null);
     setCopied(false);
@@ -1037,9 +1144,60 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 ? placedOrder.is_blocked
                   ? "Tu pedido ha sido recibido. Un mesero llevará la terminal a tu mesa para confirmar el pago y enviar tu orden a cocina."
                   : "Tu pedido está siendo preparado. Un mesero llevará la terminal con tu orden lista."
+                : placedOrder.payment_type === "bank_transfer"
+                ? "Tu pedido ha sido recibido. Realiza la transferencia bancaria con los datos a continuación para confirmar tu orden."
                 : "Tu pedido ha sido recibido. El restaurante lo preparará en breve."}
             </p>
           </div>
+
+          {/* Bank Transfer Information */}
+          {placedOrder.payment_type === "bank_transfer" && placedOrder.bank_transfer_clabe && (
+            <div className="bg-orange-50 border-4 border-orange-600 rounded-xl p-6 shadow-lg">
+              <Building2 className="w-10 h-10 text-orange-600 mx-auto mb-3" />
+              <p className="text-base font-semibold text-gray-700 mb-4 text-center">Datos para Transferencia SPEI</p>
+
+              <div className="space-y-3 bg-white rounded-lg p-4">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">CLABE Interbancaria:</p>
+                  <p className="text-lg font-mono font-bold text-gray-900">{placedOrder.bank_transfer_clabe}</p>
+                </div>
+
+                {placedOrder.bank_transfer_reference && (
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Referencia:</p>
+                    <p className="text-base font-mono font-bold text-gray-900">{placedOrder.bank_transfer_reference}</p>
+                  </div>
+                )}
+
+                {placedOrder.bank_transfer_agreement && (
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Convenio Bancomer CIE:</p>
+                    <p className="text-base font-mono font-bold text-gray-900">{placedOrder.bank_transfer_agreement}</p>
+                  </div>
+                )}
+
+                <div className="border-t-2 border-gray-200 pt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 font-medium">Monto a transferir:</span>
+                    <span className="font-black text-orange-600 text-xl">{formatCurrency(orderTotal)}</span>
+                  </div>
+                </div>
+
+                {placedOrder.bank_transfer_due_date && (
+                  <div className="text-center text-xs text-gray-500 mt-2">
+                    Fecha límite: {formatDateTime(placedOrder.bank_transfer_due_date)}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 p-3 bg-orange-100 rounded-lg">
+                <p className="text-xs text-orange-800 font-medium">
+                  ⚠️ Importante: Una vez realizada la transferencia, tu pedido será procesado automáticamente.
+                  Recibirás confirmación por email.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Payment Code for Cash at Bar */}
           {placedOrder.payment_type === "cash_at_bar" && placedOrder.cash_payment_code && (
@@ -1269,7 +1427,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <option value="">Selecciona tu mesa</option>
               {availableTables.map((table) => (
                 <option key={table.id} value={table.table_number}>
-                  Mesa {table.table_number} ({table.seat_capacity} sillas)
+                  Mesa {table.table_number}
                 </option>
               ))}
             </select>
@@ -1304,6 +1462,19 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           }
         />
 
+        {/* Email (required for bank transfer) */}
+        {paymentMethod === "bank_transfer" && (
+          <Input
+            label="Email *"
+            type="email"
+            value={customerEmail}
+            onChange={(e) => setCustomerEmail(e.target.value)}
+            placeholder="tu@email.com"
+            required
+            helperText="Necesario para enviarte los datos de la transferencia"
+          />
+        )}
+
         {/* Special Instructions */}
         <div>
           <label className="label mb-2">Instrucciones especiales (Opcional)</label>
@@ -1319,44 +1490,86 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         {/* Payment Method */}
         <div>
           <label className="label mb-3">Método de pago</label>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("terminal_at_table")}
-              className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
-                paymentMethod === "terminal_at_table"
-                  ? "border-blue-600 bg-blue-50 text-blue-600"
-                  : "border-border hover:border-blue-400"
-              }`}
-            >
-              <Smartphone className="w-5 h-5" />
-              <span className="text-xs">Terminal a la mesa</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("cash_at_bar")}
-              className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
-                paymentMethod === "cash_at_bar"
-                  ? "border-green-600 bg-green-50 text-green-600"
-                  : "border-border hover:border-green-400"
-              }`}
-            >
-              <Banknote className="w-5 h-5" />
-              <span className="text-xs">Efectivo en barra</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("now")}
-              className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
-                paymentMethod === "now"
-                  ? "border-purple-600 bg-purple-50 text-purple-600"
-                  : "border-border hover:border-purple-400"
-              }`}
-            >
-              <CreditCard className="w-5 h-5" />
-              <span className="text-xs">Pagar ahora</span>
-            </button>
-          </div>
+          {(() => {
+            // Default to true if undefined (for backward compatibility before migration)
+            const terminalEnabled = restaurant?.payment_terminal_enabled ?? true;
+            const cashBarEnabled = restaurant?.payment_cash_bar_enabled ?? true;
+            const cardEnabled = (restaurant?.payment_card_enabled ?? true) && !!restaurant?.openpay_customer_id;
+            const bankTransferEnabled = (restaurant?.payment_bank_transfer_enabled ?? true) && !!restaurant?.openpay_customer_id;
+
+            const enabledCount = [terminalEnabled, cashBarEnabled, cardEnabled, bankTransferEnabled].filter(Boolean).length;
+            const gridClass = enabledCount === 4 ? 'grid-cols-2' : enabledCount === 3 ? 'grid-cols-3' : enabledCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
+
+            console.log("[CustomerMenu] Payment methods render:", {
+              terminalEnabled,
+              cashBarEnabled,
+              cardEnabled,
+              bankTransferEnabled,
+              enabledCount,
+              gridClass
+            });
+
+            return (
+              <div className={`grid gap-2 ${gridClass}`}>
+                {terminalEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("terminal_at_table")}
+                    className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
+                      paymentMethod === "terminal_at_table"
+                        ? "border-blue-600 bg-blue-50 text-blue-600"
+                        : "border-border hover:border-blue-400"
+                    }`}
+                  >
+                    <Smartphone className="w-5 h-5" />
+                    <span className="text-xs">Terminal a la mesa</span>
+                  </button>
+                )}
+                {cashBarEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("cash_at_bar")}
+                    className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
+                      paymentMethod === "cash_at_bar"
+                        ? "border-green-600 bg-green-50 text-green-600"
+                        : "border-border hover:border-green-400"
+                    }`}
+                  >
+                    <Banknote className="w-5 h-5" />
+                    <span className="text-xs">Efectivo en barra</span>
+                  </button>
+                )}
+                {bankTransferEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("bank_transfer")}
+                    className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
+                      paymentMethod === "bank_transfer"
+                        ? "border-orange-600 bg-orange-50 text-orange-600"
+                        : "border-border hover:border-orange-400"
+                    }`}
+                  >
+                    <Building2 className="w-5 h-5" />
+                    <span className="text-xs">Transferencia</span>
+                  </button>
+                )}
+                {cardEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("now")}
+                    className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
+                      paymentMethod === "now"
+                        ? "border-purple-600 bg-purple-50 text-purple-600"
+                        : "border-border hover:border-purple-400"
+                    }`}
+                  >
+                    <CreditCard className="w-5 h-5" />
+                    <span className="text-xs">Pagar ahora</span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Cash Amount (only for cash at bar) */}

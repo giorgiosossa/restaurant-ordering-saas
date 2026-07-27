@@ -8,6 +8,7 @@ import {
   EyeOff,
   Smartphone,
   CreditCard,
+  Banknote,
 } from "lucide-react";
 import { Card, Button, Loading, Alert } from "../../components/ui";
 import { QRCodeSVG } from "qrcode.react";
@@ -34,6 +35,15 @@ const RestaurantSettings: React.FC = () => {
   const [terminalLoading, setTerminalLoading] = useState(false);
   const [terminalError, setTerminalError] = useState("");
   const [terminalSuccess, setTerminalSuccess] = useState("");
+
+  // Payment methods enabled state
+  const [paymentCardEnabled, setPaymentCardEnabled] = useState(true);
+  const [paymentTerminalEnabled, setPaymentTerminalEnabled] = useState(true);
+  const [paymentCashBarEnabled, setPaymentCashBarEnabled] = useState(true);
+  const [paymentBankTransferEnabled, setPaymentBankTransferEnabled] = useState(true);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
+  const [paymentMethodsError, setPaymentMethodsError] = useState("");
+  const [paymentMethodsSuccess, setPaymentMethodsSuccess] = useState("");
 
   // Openpay settings state
   const [openpayData, setOpenpayData] = useState({
@@ -70,6 +80,10 @@ const RestaurantSettings: React.FC = () => {
         setRestaurant(data);
         setPinEnabled(data.pin_enabled || false);
         setTerminalAutoApprove(data.terminal_payment_auto_approve || false);
+        setPaymentCardEnabled(data.payment_card_enabled ?? true);
+        setPaymentTerminalEnabled(data.payment_terminal_enabled ?? true);
+        setPaymentCashBarEnabled(data.payment_cash_bar_enabled ?? true);
+        setPaymentBankTransferEnabled(data.payment_bank_transfer_enabled ?? true);
       } catch (err) {
         setError("No se pudieron cargar los datos del restaurante");
       } finally {
@@ -109,6 +123,50 @@ const RestaurantSettings: React.FC = () => {
       setTerminalError("Error al guardar la configuración");
     } finally {
       setTerminalLoading(false);
+    }
+  };
+
+  const handleSavePaymentMethods = async () => {
+    setPaymentMethodsError("");
+    setPaymentMethodsSuccess("");
+
+    // Validar que al menos un método de pago esté habilitado
+    if (!paymentCardEnabled && !paymentTerminalEnabled && !paymentCashBarEnabled && !paymentBankTransferEnabled) {
+      setPaymentMethodsError("Debes mantener al menos un método de pago habilitado");
+      return;
+    }
+
+    setPaymentMethodsLoading(true);
+
+    try {
+      const { error: updateError } = await supabase
+        .from("restaurants")
+        .update({
+          payment_card_enabled: paymentCardEnabled,
+          payment_terminal_enabled: paymentTerminalEnabled,
+          payment_cash_bar_enabled: paymentCashBarEnabled,
+          payment_bank_transfer_enabled: paymentBankTransferEnabled,
+        })
+        .eq("id", restaurant?.id);
+
+      if (updateError) throw updateError;
+
+      setPaymentMethodsSuccess("Métodos de pago actualizados correctamente");
+
+      // Reload restaurant data
+      const { data, error: fetchError } = await supabase
+        .from("restaurants")
+        .select("*")
+        .eq("id", restaurant?.id)
+        .single();
+
+      if (!fetchError && data) {
+        setRestaurant(data);
+      }
+    } catch (err) {
+      setPaymentMethodsError("Error al guardar la configuración");
+    } finally {
+      setPaymentMethodsLoading(false);
     }
   };
 
@@ -525,6 +583,140 @@ const RestaurantSettings: React.FC = () => {
             onClick={handleSaveTerminalSettings}
             loading={terminalLoading}
             icon={<Smartphone className="w-5 h-5" />}
+          >
+            Guardar Configuración
+          </Button>
+        </div>
+      </Card>
+
+      {/* Payment Methods Configuration */}
+      <Card>
+        <div className="flex items-start space-x-2 mb-4">
+          <Banknote className="w-6 h-6 text-accent" />
+          <div>
+            <h3 className="text-xl font-bold text-text">Métodos de Pago Disponibles</h3>
+            <p className="text-text-secondary text-sm">
+              Configura qué métodos de pago estarán disponibles para tus clientes en el menú
+            </p>
+          </div>
+        </div>
+
+        {paymentMethodsError && (
+          <Alert type="error" message={paymentMethodsError} onClose={() => setPaymentMethodsError("")} className="mb-4" />
+        )}
+        {paymentMethodsSuccess && (
+          <Alert type="success" message={paymentMethodsSuccess} onClose={() => setPaymentMethodsSuccess("")} className="mb-4" />
+        )}
+
+        <div className="space-y-6">
+          <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mb-4">
+            <h4 className="font-semibold text-text mb-2">Información:</h4>
+            <p className="text-text-secondary text-sm">
+              Activa o desactiva los métodos de pago que tus clientes podrán usar al hacer pedidos.
+              Al menos un método debe estar habilitado.
+            </p>
+          </div>
+
+          {/* Payment Card (Openpay) */}
+          <div className="flex items-center justify-between p-4 bg-bg-subtle rounded-lg border-2 border-border hover:border-accent/30 transition-colors">
+            <div className="flex items-start space-x-3">
+              <CreditCard className="w-6 h-6 text-purple-600 mt-1" />
+              <div className="flex-1">
+                <div className="font-semibold text-text">Pagar ahora con tarjeta</div>
+                <p className="text-sm text-text-secondary mt-1">
+                  Pago inmediato con tarjeta de crédito/débito mediante Openpay.
+                  {!restaurant?.openpay_customer_id && (
+                    <span className="text-warning font-medium"> (Requiere configurar Openpay)</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={paymentCardEnabled}
+                onChange={(e) => setPaymentCardEnabled(e.target.checked)}
+                disabled={!restaurant?.openpay_customer_id}
+              />
+              <div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"></div>
+            </label>
+          </div>
+
+          {/* Terminal at Table */}
+          <div className="flex items-center justify-between p-4 bg-bg-subtle rounded-lg border-2 border-border hover:border-accent/30 transition-colors">
+            <div className="flex items-start space-x-3">
+              <Smartphone className="w-6 h-6 text-blue-600 mt-1" />
+              <div className="flex-1">
+                <div className="font-semibold text-text">Terminal a la mesa</div>
+                <p className="text-sm text-text-secondary mt-1">
+                  El mesero lleva la terminal de pago a la mesa del cliente.
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={paymentTerminalEnabled}
+                onChange={(e) => setPaymentTerminalEnabled(e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          {/* Cash at Bar */}
+          <div className="flex items-center justify-between p-4 bg-bg-subtle rounded-lg border-2 border-border hover:border-accent/30 transition-colors">
+            <div className="flex items-start space-x-3">
+              <Banknote className="w-6 h-6 text-green-600 mt-1" />
+              <div className="flex-1">
+                <div className="font-semibold text-text">Efectivo en barra</div>
+                <p className="text-sm text-text-secondary mt-1">
+                  El cliente recibe un código y paga en efectivo en la barra.
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={paymentCashBarEnabled}
+                onChange={(e) => setPaymentCashBarEnabled(e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+            </label>
+          </div>
+
+          {/* Bank Transfer (SPEI) */}
+          <div className="flex items-center justify-between p-4 bg-bg-subtle rounded-lg border-2 border-border hover:border-accent/30 transition-colors">
+            <div className="flex items-start space-x-3">
+              <CreditCard className="w-6 h-6 text-orange-600 mt-1" />
+              <div className="flex-1">
+                <div className="font-semibold text-text">Transferencia bancaria (SPEI)</div>
+                <p className="text-sm text-text-secondary mt-1">
+                  El cliente recibe datos bancarios para realizar una transferencia SPEI.
+                  {!restaurant?.openpay_customer_id && (
+                    <span className="text-warning font-medium"> (Requiere configurar Openpay)</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={paymentBankTransferEnabled}
+                onChange={(e) => setPaymentBankTransferEnabled(e.target.checked)}
+                disabled={!restaurant?.openpay_customer_id}
+              />
+              <div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"></div>
+            </label>
+          </div>
+
+          <Button
+            onClick={handleSavePaymentMethods}
+            loading={paymentMethodsLoading}
+            icon={<Banknote className="w-5 h-5" />}
           >
             Guardar Configuración
           </Button>

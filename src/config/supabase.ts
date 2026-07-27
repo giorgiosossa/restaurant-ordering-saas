@@ -49,6 +49,10 @@ export interface Restaurant {
   openpay_customer_id?: string;
   owner_pin?: string;
   pin_enabled?: boolean;
+  payment_card_enabled?: boolean;
+  payment_terminal_enabled?: boolean;
+  payment_cash_bar_enabled?: boolean;
+  payment_bank_transfer_enabled?: boolean;
   internal_notes?: string;
   block_reason?: string;
   trial_ends_at?: string;
@@ -104,9 +108,13 @@ export interface Order {
   payment_method?: string;
   payment_status?: string;
   payment_transaction_id?: string;
-  payment_type?: "now" | "cash_at_bar" | "terminal_at_table";
+  payment_type?: "now" | "cash_at_bar" | "terminal_at_table" | "bank_transfer";
   cash_payment_code?: string;
   cash_amount_brought?: number;
+  bank_transfer_clabe?: string;
+  bank_transfer_reference?: string;
+  bank_transfer_agreement?: string;
+  bank_transfer_due_date?: string;
   is_blocked?: boolean;
   payment_verified_at?: string;
   customer_notes?: string;

@@ -178,16 +178,40 @@ serve(async (req) => {
 async function handleChargeSucceeded(supabase: any, transaction: any, orderId: string) {
   console.log('[WEBHOOK] Processing charge.succeeded:', transaction.id);
 
+  // First get the order to check payment type
+  const { data: order, error: fetchError } = await supabase
+    .from('orders')
+    .select('payment_type')
+    .eq('order_number', orderId)
+    .single();
+
+  if (fetchError) {
+    console.error('[WEBHOOK] Error fetching order:', fetchError);
+    throw fetchError;
+  }
+
+  // For bank transfers, go directly to 'preparing' status
+  // For card payments ('now'), go to 'accepted' first
+  const newStatus = order.payment_type === 'bank_transfer' ? 'preparing' : 'accepted';
+  const preparing_at = order.payment_type === 'bank_transfer' ? new Date().toISOString() : null;
+
+  const updateData: any = {
+    payment_status: 'paid',
+    payment_transaction_id: transaction.id,
+    status: newStatus,
+    is_blocked: false,
+    payment_verified_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  // Add preparing_at timestamp for bank transfers
+  if (preparing_at) {
+    updateData.preparing_at = preparing_at;
+  }
+
   const { error } = await supabase
     .from('orders')
-    .update({
-      payment_status: 'paid',
-      payment_transaction_id: transaction.id,
-      status: 'accepted',
-      is_blocked: false,
-      payment_verified_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('order_number', orderId);
 
   if (error) {
@@ -195,7 +219,7 @@ async function handleChargeSucceeded(supabase: any, transaction: any, orderId: s
     throw error;
   }
 
-  console.log('[WEBHOOK] Order updated successfully:', orderId);
+  console.log(`[WEBHOOK] Order updated successfully: ${orderId} -> status: ${newStatus}`);
 }
 
 async function handleChargeFailed(supabase: any, transaction: any, orderId: string) {

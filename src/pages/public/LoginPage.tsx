@@ -5,11 +5,24 @@ import { Button, Input, Alert, Card } from "../../components/ui";
 import { APP_CONFIG } from "../../config/config";
 import { supabase } from "../../config/supabase";
 import { isValidEmail } from "../../utils/helpers";
+import PinAuthentication from "../../components/auth/PinAuthentication";
+import { validateAdminPin, validateEmployeePin, isPinRequired } from "../../services/pinAuthService";
+import { startOrResumeShift } from "../../services/employeeService";
+import type { Employee } from "../../config/supabase";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPinPad, setShowPinPad] = useState(false);
+  const [restaurantData, setRestaurantData] = useState<{
+    id: string;
+    name: string;
+    slug: string;
+    is_active: boolean;
+    userId: string;
+    userEmail: string;
+  } | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -95,25 +108,43 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      // Login successful - store user data in localStorage
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: userData.id,
-          email: userData.email,
-          role: userData.role,
-          restaurant_id: userData.restaurant_id,
-          restaurant: {
-            name: restaurant.name,
-            slug: restaurant.slug,
-            is_active: restaurant.is_active,
-          },
-          temp_password: userData.temp_password,
-        })
-      );
+      // Email/Password authentication successful
+      // Check if PIN is required for this restaurant
+      const pinCheck = await isPinRequired(userData.restaurant_id);
 
-      // Redirect to restaurant dashboard
-      navigate("/restaurant");
+      if (pinCheck.required) {
+        // PIN is required - show PIN pad
+        setRestaurantData({
+          id: userData.restaurant_id,
+          name: restaurant.name,
+          slug: restaurant.slug,
+          is_active: restaurant.is_active,
+          userId: userData.id,
+          userEmail: userData.email,
+        });
+        setShowPinPad(true);
+        setLoading(false);
+      } else {
+        // PIN not required - grant admin access directly
+        console.log("📌 [LOGIN] PIN not required, granting admin access directly");
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            id: userData.id,
+            email: userData.email,
+            role: userData.role,
+            restaurant_id: userData.restaurant_id,
+            restaurant: {
+              name: restaurant.name,
+              slug: restaurant.slug,
+              is_active: restaurant.is_active,
+            },
+            temp_password: userData.temp_password,
+            authType: "admin",
+          })
+        );
+        navigate("/restaurant");
+      }
     } catch (err: any) {
       console.error("Login error:", err);
       // Show detailed error for debugging
@@ -132,6 +163,100 @@ const LoginPage: React.FC = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     setError("");
   };
+
+  const handleAdminPinAuth = async (pin: string) => {
+    if (!restaurantData) {
+      return { success: false, error: "Error de sesión" };
+    }
+
+    const result = await validateAdminPin(restaurantData.id, pin);
+
+    if (result.success) {
+      // Admin authenticated - grant full access
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: restaurantData.userId,
+          email: restaurantData.userEmail,
+          role: "owner",
+          restaurant_id: restaurantData.id,
+          restaurant: {
+            name: restaurantData.name,
+            slug: restaurantData.slug,
+            is_active: restaurantData.is_active,
+          },
+          authType: "admin", // Mark as admin access
+        })
+      );
+
+      // Redirect to full restaurant dashboard
+      navigate("/restaurant");
+      return { success: true };
+    }
+
+    return { success: false, error: result.error };
+  };
+
+  const handleEmployeePinAuth = async (pin: string) => {
+    if (!restaurantData) {
+      return { success: false, error: "Error de sesión" };
+    }
+
+    const result = await validateEmployeePin(restaurantData.id, pin);
+
+    if (result.success && result.employee) {
+      // Employee authenticated - start shift and restrict to Comandas
+      const { data: shift, error: shiftError } = await startOrResumeShift(
+        result.employee.id,
+        restaurantData.id
+      );
+
+      if (shiftError || !shift) {
+        return { success: false, error: "No se pudo iniciar el turno" };
+      }
+
+      // Store employee session
+      localStorage.setItem(
+        "employee_session",
+        JSON.stringify({
+          employeeId: result.employee.id,
+          name: result.employee.name,
+          roles: result.employee.roles,
+          shiftId: shift.id,
+          isAdminBypass: false,
+          restaurantId: restaurantData.id,
+          authType: "employee", // Mark as employee access
+        })
+      );
+
+      // Sign out from Supabase auth (employees don't need it)
+      await supabase.auth.signOut();
+
+      // Redirect to Comandas only
+      navigate("/comandas");
+      return { success: true };
+    }
+
+    return { success: false, error: result.error };
+  };
+
+  const handleBackToLogin = () => {
+    setShowPinPad(false);
+    setRestaurantData(null);
+    supabase.auth.signOut();
+  };
+
+  // Show PIN pad if email/password auth succeeded
+  if (showPinPad && restaurantData) {
+    return (
+      <PinAuthentication
+        restaurantId={restaurantData.id}
+        onAdminAuth={handleAdminPinAuth}
+        onEmployeeAuth={handleEmployeePinAuth}
+        onBack={handleBackToLogin}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center px-4">
