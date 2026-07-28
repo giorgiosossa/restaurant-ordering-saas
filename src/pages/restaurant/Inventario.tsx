@@ -19,7 +19,7 @@ import {
   getLowStockItems,
 } from "../../services/inventoryService";
 import type { InventoryItem } from "../../config/supabase";
-import { supabase } from "../../config/supabase";
+// import { supabase } from "../../config/supabase"; // Not used in this component
 import { formatCurrency } from "../../utils/helpers";
 
 const Inventario: React.FC = () => {
@@ -117,25 +117,22 @@ const Inventario: React.FC = () => {
 
       {/* Low Stock Alert */}
       {lowStockItems.length > 0 && (
-        <Alert
-          type="warning"
-          message={
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="w-5 h-5" />
-                <span>
-                  {lowStockItems.length} {lowStockItems.length === 1 ? "insumo tiene" : "insumos tienen"} stock bajo
-                </span>
-              </div>
-              <button
-                onClick={() => setFilterStatus("low_stock")}
-                className="text-sm underline hover:no-underline"
-              >
-                Ver todos
-              </button>
+        <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="w-5 h-5 text-warning" />
+              <span className="text-warning font-medium">
+                {lowStockItems.length} {lowStockItems.length === 1 ? "insumo tiene" : "insumos tienen"} stock bajo
+              </span>
             </div>
-          }
-        />
+            <button
+              onClick={() => setFilterStatus("low_stock")}
+              className="text-sm text-warning underline hover:no-underline"
+            >
+              Ver todos
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Real-time indicator */}

@@ -3,8 +3,16 @@
 # Script para simular un pago SPEI en Sandbox de OpenPay
 # Uso: ./simulate-spei-payment.sh <TRANSACTION_ID>
 
-MERCHANT_ID="mbdayyuhcki0qyt3sjsx"
-PRIVATE_KEY="sk_9609869aed4f4113990c47bb50ea5e1a"
+# Load credentials from .env file
+if [ -f "../.env" ]; then
+  source "../.env"
+  MERCHANT_ID="${OPENPAY_MERCHANT_ID}"
+  PRIVATE_KEY="${OPENPAY_PRIVATE_KEY}"
+else
+  echo "❌ Error: .env file not found"
+  echo "Create a .env file with OPENPAY_MERCHANT_ID and OPENPAY_PRIVATE_KEY"
+  exit 1
+fi
 TRANSACTION_ID=$1
 
 if [ -z "$TRANSACTION_ID" ]; then

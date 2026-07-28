@@ -5,7 +5,8 @@
  * Copia este archivo como base para tu implementación.
  */
 
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
+import type { Request, Response } from 'express';
 import { openpayService } from '../services/openpayService';
 import { handleOpenpayWebhook } from '../controllers/openpayWebhookController';
 import type {
@@ -25,7 +26,9 @@ const router = Router();
  */
 router.post('/restaurants/:restaurantId/openpay/register', async (req: Request, res: Response) => {
   try {
-    const { restaurantId } = req.params;
+    const restaurantId = Array.isArray(req.params.restaurantId)
+      ? req.params.restaurantId[0]
+      : req.params.restaurantId;
     const requestData: RegisterRestaurantRequest = {
       restaurantId,
       businessName: req.body.businessName,
@@ -86,9 +89,10 @@ router.post('/orders/:orderId/pay', async (req: Request, res: Response) => {
     // const restaurant = await getRestaurant(order.restaurant_id);
 
     // Example request (replace with actual data)
+    const orderIdStr = Array.isArray(orderId) ? orderId[0] : orderId;
     const paymentRequest: ProcessPaymentRequest = {
       restaurantOpenpayId: 'customer_id_from_db', // restaurant.openpay_customer_id
-      orderId: orderId,
+      orderId: orderIdStr,
       amount: 250.0, // order.total
       description: `Orden #${orderId}`,
       cardToken: cardToken,
@@ -138,7 +142,8 @@ router.post('/orders/:orderId/pay', async (req: Request, res: Response) => {
  */
 router.post('/orders/:orderId/codi', async (req: Request, res: Response) => {
   try {
-    const { orderId } = req.params;
+    const orderIdParam = req.params.orderId;
+    const orderId = Array.isArray(orderIdParam) ? orderIdParam[0] : orderIdParam;
 
     // TODO: Get order and restaurant from database
     const restaurantOpenpayId = 'customer_id_from_db';
@@ -160,7 +165,7 @@ router.post('/orders/:orderId/codi', async (req: Request, res: Response) => {
           qrCodeUrl: result.data.payment_method?.barcode_url,
           reference: result.data.payment_method?.reference,
           clabe: result.data.payment_method?.clabe,
-          expiresAt: result.data.due_date,
+          expiresAt: (result.data as any).due_date, // Type assertion needed
         },
       });
     } else {
@@ -187,7 +192,8 @@ router.post('/orders/:orderId/codi', async (req: Request, res: Response) => {
  */
 router.post('/charges/:chargeId/refund', async (req: Request, res: Response) => {
   try {
-    const { chargeId } = req.params;
+    const chargeIdParam = req.params.chargeId;
+    const chargeId = Array.isArray(chargeIdParam) ? chargeIdParam[0] : chargeIdParam;
     const { description, amount } = req.body;
 
     // TODO: Get restaurant from charge/order
@@ -232,7 +238,7 @@ router.post('/charges/:chargeId/refund', async (req: Request, res: Response) => 
  * GET /api/openpay/config
  * Get public Openpay configuration for frontend
  */
-router.get('/openpay/config', (req: Request, res: Response) => {
+router.get('/openpay/config', (_req: Request, res: Response) => {
   res.json({
     merchantId: openpayService.getMerchantId(),
     publicKey: openpayService.getPublicKey(),
@@ -259,7 +265,7 @@ router.post('/webhooks/openpay', handleOpenpayWebhook);
  * GET /api/openpay/health
  * Check if Openpay service is ready
  */
-router.get('/openpay/health', (req: Request, res: Response) => {
+router.get('/openpay/health', (_req: Request, res: Response) => {
   const isReady = openpayService.isReady();
 
   res.status(isReady ? 200 : 503).json({

@@ -10,7 +10,7 @@
  * Endpoint: POST /webhooks/openpay
  */
 
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { createHash } from 'crypto';
 import type {
   OpenpayWebhookPayload,

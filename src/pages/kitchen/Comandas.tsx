@@ -92,7 +92,7 @@ const Comandas: React.FC = () => {
 
   const allowedTabs: FilterTab[] =
     session && !session.isAdminBypass
-      ? ALL_TABS.filter((tab) => session.roles.some((role) => ROLE_TAB_MAP[role] === tab))
+      ? ALL_TABS.filter((tab) => session.roles.some((role: EmployeeRole) => ROLE_TAB_MAP[role] === tab))
       : ALL_TABS;
 
   useEffect(() => {

@@ -9,7 +9,7 @@ export const SUPABASE_ANON_KEY =
 
 // Application Configuration
 export const APP_CONFIG = {
-  appName: "FoodOrder",
+  appName: "Cocina Cantera",
   defaultCurrency: "$",
   currencyCode: "MXN",
   orderPrefix: "ORD",
@@ -21,30 +21,32 @@ export const APP_CONFIG = {
       price: 0,
       duration: "14 días",
       features: [
-        "Hasta 50 pedidos/mes",
+        "Hasta 50 pedidos al mes",
         "Gestión básica de menú",
-        "Pedidos por QR",
+        "Pedidos por código QR",
         "Soporte por email",
       ],
     },
-    starter: {
-      name: "Starter",
-      price: 299,
-      duration: "por mes",
+    commission: {
+      name: "Comisión por Venta",
+      price: 0,
+      priceLabel: "3% por pedido",
+      duration: "sin cuota fija",
       features: [
         "Pedidos ilimitados",
         "Gestión completa de menú",
-        "Pedidos por QR",
-        "Reportes",
+        "Pedidos por código QR",
+        "Reportes en tiempo real",
         "Soporte por WhatsApp",
       ],
     },
-    pro: {
-      name: "Pro",
-      price: 599,
+    fixed: {
+      name: "Plan Fijo Mensual",
+      price: 799,
       duration: "por mes",
       features: [
-        "Todo lo de Starter",
+        "Pedidos ilimitados",
+        "0% de comisión por venta",
         "Múltiples sucursales",
         "Analítica avanzada",
         "Marca personalizada",

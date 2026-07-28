@@ -223,7 +223,7 @@ const Employees: React.FC = () => {
                       ) : (
                         <Badge variant="neutral">Inactivo</Badge>
                       )}
-                      <Badge variant="info">
+                      <Badge variant="neutral">
                         {employee.employment_type === "full_time"
                           ? "Tiempo Completo"
                           : employee.employment_type === "part_time"

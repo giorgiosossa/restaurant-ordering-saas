@@ -1,4 +1,4 @@
-import React from "react";
+// import React from "react"; // Not needed with new JSX transform
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Public pages

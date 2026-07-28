@@ -1,5 +1,5 @@
 import { supabase } from "../config/supabase";
-import type { InventoryItem, MenuItemIngredient, MenuItemIngredientWithDetails } from "../config/supabase";
+import type { InventoryItem, MenuItemIngredientWithDetails } from "../config/supabase";
 
 /**
  * Inventory Service

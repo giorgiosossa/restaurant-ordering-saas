@@ -9,6 +9,7 @@ import {
   Clock,
   AlertCircle,
   Copy,
+  Lock,
 } from "lucide-react";
 import {
   Card,

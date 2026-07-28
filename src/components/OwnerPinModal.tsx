@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Lock, AlertCircle } from "lucide-react";
+import { Lock, AlertCircle } from "lucide-react";
 import { Modal } from "./ui";
 
 interface OwnerPinModalProps {

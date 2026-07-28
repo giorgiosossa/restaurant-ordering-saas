@@ -231,55 +231,51 @@ const CustomerMenu: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-screen-lg mx-auto px-4 py-3">
-          <div className="flex items-center gap-3 mb-3">
+    <div className="min-h-screen bg-bg-subtle pb-24">
+      {/* Header + Category Tabs (single continuous surface) */}
+      <div className="bg-surface/80 backdrop-blur-md sticky top-0 z-40 shadow-[0_1px_0_0_rgb(var(--color-border))]">
+        <div className="max-w-screen-lg mx-auto px-4 pt-4">
+          <div className="flex items-center gap-3 mb-4">
             {restaurant.logo_url && (
               <img
                 src={restaurant.logo_url}
                 alt={restaurant.name}
-                className="w-12 h-12 rounded-lg object-cover"
+                className="w-11 h-11 rounded-full object-cover border border-border"
               />
             )}
             <div>
-              <h1 className="font-bold text-lg text-gray-800">
+              <h1 className="font-semibold text-base text-text tracking-tight">
                 {restaurant.name}
               </h1>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-text-secondary">
                 {restaurant.restaurant_type}
               </p>
             </div>
           </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
             <input
               type="text"
-              placeholder="Search for dishes"
+              placeholder="Buscar platillos"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="w-full pl-10 pr-4 py-2.5 bg-bg-subtle border border-border rounded-full text-sm text-text placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-accent/10 focus:border-accent/30 transition-colors"
             />
           </div>
-        </div>
-      </div>
 
-      {/* Category Tabs */}
-      <div className="bg-white border-b sticky top-[108px] z-30">
-        <div className="max-w-screen-lg mx-auto px-4">
-          <div className="flex gap-2 overflow-x-auto py-2 scrollbar-hide">
+          {/* Category Tabs */}
+          <div className="flex gap-2 overflow-x-auto py-3 scrollbar-hide">
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setCategoryFilter(category || "all")}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ${
+                className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                   categoryFilter === category
-                    ? "bg-accent text-white"
-                    : "bg-gray-100 text-gray-600"
+                    ? "bg-accent text-accent-foreground"
+                    : "bg-bg-subtle text-text-secondary hover:text-text"
                 }`}
               >
-                {category === "all" ? "All" : category}
+                {category === "all" ? "Todos" : category}
               </button>
             ))}
           </div>
@@ -290,7 +286,9 @@ const CustomerMenu: React.FC = () => {
       <div className="max-w-screen-lg mx-auto px-4 py-4">
         {filteredItems.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-400 text-sm">No items found</p>
+            <p className="text-text-secondary text-sm">
+              No se encontraron platillos
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
@@ -303,7 +301,7 @@ const CustomerMenu: React.FC = () => {
               return (
                 <div
                   key={item.id}
-                  className="bg-white rounded-xl overflow-hidden shadow-sm"
+                  className="bg-surface rounded-xl overflow-hidden border border-border transition-shadow hover:shadow-sm"
                 >
                   <div className="relative h-36">
                     {item.image_url ? (
@@ -313,27 +311,27 @@ const CustomerMenu: React.FC = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                        <Package className="w-10 h-10 text-gray-300" />
+                      <div className="w-full h-full bg-bg-subtle flex items-center justify-center">
+                        <Package className="w-10 h-10 text-text-secondary/40" />
                       </div>
                     )}
                     {!item.is_available && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="bg-black/80 text-white text-xs px-2 py-1 rounded">
-                          Not Available
+                      <div className="absolute inset-0 bg-bg/60 backdrop-blur-[1px] flex items-center justify-center">
+                        <span className="bg-surface text-text text-xs font-medium px-2.5 py-1 rounded-full border border-border">
+                          No disponible
                         </span>
                       </div>
                     )}
                   </div>
 
                   <div className="p-3">
-                    <h3 className="font-semibold text-sm text-gray-800 mb-1 line-clamp-2 h-10">
+                    <h3 className="font-medium text-sm text-text mb-1 line-clamp-2 h-10">
                       {item.name}
                     </h3>
 
                     <div className="flex items-end justify-between mt-2">
                       <div>
-                        <p className="font-bold text-gray-800">
+                        <p className="font-semibold text-text">
                           {item.sizes && item.sizes.length > 0
                             ? formatCurrency(
                                 Math.min(...item.sizes.map((s) => s.price))
@@ -351,19 +349,19 @@ const CustomerMenu: React.FC = () => {
                                   ? handleItemClick(item)
                                   : handleAddSimple(item)
                               }
-                              className="px-5 py-1.5 border-2 border-accent text-accent font-bold text-xs rounded-md hover:shadow-md transition-shadow"
+                              className="px-4 py-1.5 bg-accent text-accent-foreground font-medium text-xs rounded-full hover:opacity-90 transition-opacity"
                             >
-                              ADD
+                              Agregar
                             </button>
                           ) : (
-                            <div className="flex items-center bg-accent text-white rounded-md">
+                            <div className="flex items-center bg-accent text-accent-foreground rounded-full">
                               <button
                                 onClick={() => handleRemoveItem(item.id)}
-                                className="px-2 py-1 hover:bg-accent-hover rounded-l-md"
+                                className="px-2.5 py-1.5 hover:opacity-80 rounded-l-full"
                               >
                                 <Minus className="w-3.5 h-3.5" />
                               </button>
-                              <span className="px-3 font-bold text-sm">
+                              <span className="px-2 font-medium text-sm min-w-[1.25rem] text-center">
                                 {quantity}
                               </span>
                               <button
@@ -372,7 +370,7 @@ const CustomerMenu: React.FC = () => {
                                     ? handleItemClick(item)
                                     : handleAddSimple(item)
                                 }
-                                className="px-2 py-1 hover:bg-accent-hover rounded-r-md"
+                                className="px-2.5 py-1.5 hover:opacity-80 rounded-r-full"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                               </button>
@@ -425,16 +423,16 @@ const CustomerMenu: React.FC = () => {
 
       {/* Bottom Cart Bar */}
       {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-accent text-white shadow-[0_-2px_20px_rgba(0,0,0,0.15)] z-40">
+        <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4">
           <button
             onClick={() => setShowCart(true)}
-            className="max-w-screen-lg mx-auto w-full px-4 py-3.5 flex items-center justify-between"
+            className="max-w-screen-lg mx-auto w-full bg-accent text-accent-foreground rounded-full shadow-lg px-5 py-3.5 flex items-center justify-between hover:opacity-90 transition-opacity"
           >
             <div className="flex items-center gap-3">
-              <div className="bg-white text-accent font-bold text-sm w-6 h-6 rounded flex items-center justify-center">
+              <div className="bg-accent-foreground/15 font-medium text-sm w-6 h-6 rounded-full flex items-center justify-center">
                 {cartCount}
               </div>
-              <span className="font-bold text-base">
+              <span className="font-semibold text-base">
                 {formatCurrency(
                   cart.reduce(
                     (sum, item) => sum + item.itemTotal * item.quantity,
@@ -443,9 +441,9 @@ const CustomerMenu: React.FC = () => {
                 )}
               </span>
             </div>
-            <div className="flex items-center gap-2 font-semibold text-sm">
-              <span>View Cart</span>
-              <span className="text-lg">›</span>
+            <div className="flex items-center gap-1.5 font-medium text-sm">
+              <span>Ver carrito</span>
+              <span className="text-base">→</span>
             </div>
           </button>
         </div>
@@ -487,51 +485,66 @@ const CartModal: React.FC<CartModalProps> = ({
           </div>
         ) : (
           <>
-            <div className="space-y-4 max-h-96 overflow-y-auto">
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
               {cart.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-start space-x-4 p-4 bg-bg-subtle rounded-lg"
+                  className="flex items-center gap-3 p-3 bg-bg-subtle rounded-2xl"
                 >
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-text">{item.name}</h4>
-                    {item.selectedSize && (
-                      <p className="text-sm text-text-secondary">
-                        Tamaño: {item.selectedSize.name}
-                      </p>
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-surface flex-shrink-0 border border-border">
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-6 h-6 text-text-secondary/40" />
+                      </div>
                     )}
-                    {item.selectedAddons.length > 0 && (
-                      <p className="text-sm text-text-secondary">
-                        Extras:{" "}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm text-text truncate">
+                      {item.name}
+                    </h4>
+                    {(item.selectedSize || item.selectedAddons.length > 0) && (
+                      <p className="text-xs text-text-secondary truncate">
+                        {item.selectedSize?.name}
+                        {item.selectedSize && item.selectedAddons.length > 0
+                          ? " · "
+                          : ""}
                         {item.selectedAddons.map((a) => a.name).join(", ")}
                       </p>
                     )}
-                    <p className="text-accent font-semibold mt-1">
+                    <p className="text-text font-semibold text-sm mt-0.5">
                       {formatCurrency(item.itemTotal)}
                     </p>
                   </div>
-                  <div className="flex items-center space-x-2">
+
+                  <div className="flex items-center bg-surface border border-border rounded-full flex-shrink-0">
                     <button
                       onClick={() => onUpdateQuantity(index, -1)}
-                      className="p-1 rounded-full bg-border hover:bg-text-secondary/20"
+                      className="p-1.5 hover:text-accent rounded-l-full"
                     >
-                      <Minus className="w-4 h-4" />
+                      <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="w-8 text-center font-semibold">
+                    <span className="w-5 text-center text-sm font-medium">
                       {item.quantity}
                     </span>
                     <button
                       onClick={() => onUpdateQuantity(index, 1)}
-                      className="p-1 rounded-full bg-border hover:bg-text-secondary/20"
+                      className="p-1.5 hover:text-accent rounded-r-full"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   <button
                     onClick={() => onRemove(index)}
-                    className="p-1 text-error hover:bg-error/10 rounded"
+                    className="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-full flex-shrink-0"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ))}
@@ -602,7 +615,7 @@ const ItemCustomizationModal: React.FC<ItemCustomizationModalProps> = ({
           <img
             src={item.image_url}
             alt={item.name}
-            className="w-full h-48 object-cover rounded-lg"
+            className="w-full h-48 object-cover rounded-2xl"
           />
         )}
 
@@ -615,22 +628,36 @@ const ItemCustomizationModal: React.FC<ItemCustomizationModalProps> = ({
           <div>
             <h4 className="font-semibold text-text mb-3">Elige el tamaño</h4>
             <div className="space-y-2">
-              {item.sizes.map((size) => (
-                <button
-                  key={size.name}
-                  onClick={() => setSelectedSize(size)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-colors ${
-                    selectedSize?.name === size.name
-                      ? "border-accent bg-accent/5"
-                      : "border-border hover:border-accent/50"
-                  }`}
-                >
-                  <span className="font-medium text-text">{size.name}</span>
-                  <span className="text-accent font-semibold">
-                    {formatCurrency(size.price)}
-                  </span>
-                </button>
-              ))}
+              {item.sizes.map((size) => {
+                const selected = selectedSize?.name === size.name;
+                return (
+                  <button
+                    key={size.name}
+                    onClick={() => setSelectedSize(size)}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-colors ${
+                      selected
+                        ? "border-accent bg-accent/5"
+                        : "border-border hover:border-accent/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center ${
+                          selected ? "border-accent" : "border-border"
+                        }`}
+                      >
+                        {selected && (
+                          <div className="w-2.5 h-2.5 rounded-full bg-accent" />
+                        )}
+                      </div>
+                      <span className="font-medium text-text">{size.name}</span>
+                    </div>
+                    <span className="text-text-secondary font-medium text-sm">
+                      {formatCurrency(size.price)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -642,22 +669,38 @@ const ItemCustomizationModal: React.FC<ItemCustomizationModalProps> = ({
               Extras (Opcional)
             </h4>
             <div className="space-y-2">
-              {item.addons.map((addon) => (
-                <button
-                  key={addon.name}
-                  onClick={() => toggleAddon(addon)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-colors ${
-                    selectedAddons.find((a) => a.name === addon.name)
-                      ? "border-accent bg-accent/5"
-                      : "border-border hover:border-accent/50"
-                  }`}
-                >
-                  <span className="font-medium text-text">{addon.name}</span>
-                  <span className="text-accent font-semibold">
-                    +{formatCurrency(addon.price)}
-                  </span>
-                </button>
-              ))}
+              {item.addons.map((addon) => {
+                const selected = !!selectedAddons.find((a) => a.name === addon.name);
+                return (
+                  <button
+                    key={addon.name}
+                    onClick={() => toggleAddon(addon)}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-colors ${
+                      selected
+                        ? "border-accent bg-accent/5"
+                        : "border-border hover:border-accent/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-4.5 h-4.5 rounded-md border flex items-center justify-center ${
+                          selected
+                            ? "border-accent bg-accent"
+                            : "border-border"
+                        }`}
+                      >
+                        {selected && (
+                          <CheckCircle className="w-3 h-3 text-accent-foreground" />
+                        )}
+                      </div>
+                      <span className="font-medium text-text">{addon.name}</span>
+                    </div>
+                    <span className="text-text-secondary font-medium text-sm">
+                      +{formatCurrency(addon.price)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1152,48 +1195,47 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           {/* Bank Transfer Information */}
           {placedOrder.payment_type === "bank_transfer" && placedOrder.bank_transfer_clabe && (
-            <div className="bg-orange-50 border-4 border-orange-600 rounded-xl p-6 shadow-lg">
-              <Building2 className="w-10 h-10 text-orange-600 mx-auto mb-3" />
-              <p className="text-base font-semibold text-gray-700 mb-4 text-center">Datos para Transferencia SPEI</p>
+            <div className="bg-bg-subtle border border-border rounded-xl p-6">
+              <Building2 className="w-8 h-8 text-text mx-auto mb-3" />
+              <p className="text-sm font-medium text-text mb-4 text-center">Datos para Transferencia SPEI</p>
 
-              <div className="space-y-3 bg-white rounded-lg p-4">
+              <div className="space-y-3 bg-surface rounded-lg p-4 border border-border">
                 <div>
-                  <p className="text-xs text-gray-500 font-medium">CLABE Interbancaria:</p>
-                  <p className="text-lg font-mono font-bold text-gray-900">{placedOrder.bank_transfer_clabe}</p>
+                  <p className="text-xs text-text-secondary font-medium">CLABE Interbancaria:</p>
+                  <p className="text-lg font-mono font-semibold text-text">{placedOrder.bank_transfer_clabe}</p>
                 </div>
 
                 {placedOrder.bank_transfer_reference && (
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">Referencia:</p>
-                    <p className="text-base font-mono font-bold text-gray-900">{placedOrder.bank_transfer_reference}</p>
+                    <p className="text-xs text-text-secondary font-medium">Referencia:</p>
+                    <p className="text-base font-mono font-semibold text-text">{placedOrder.bank_transfer_reference}</p>
                   </div>
                 )}
 
                 {placedOrder.bank_transfer_agreement && (
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">Convenio Bancomer CIE:</p>
-                    <p className="text-base font-mono font-bold text-gray-900">{placedOrder.bank_transfer_agreement}</p>
+                    <p className="text-xs text-text-secondary font-medium">Convenio Bancomer CIE:</p>
+                    <p className="text-base font-mono font-semibold text-text">{placedOrder.bank_transfer_agreement}</p>
                   </div>
                 )}
 
-                <div className="border-t-2 border-gray-200 pt-3">
+                <div className="border-t border-border pt-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600 font-medium">Monto a transferir:</span>
-                    <span className="font-black text-orange-600 text-xl">{formatCurrency(orderTotal)}</span>
+                    <span className="text-text-secondary font-medium">Monto a transferir:</span>
+                    <span className="font-bold text-text text-xl">{formatCurrency(orderTotal)}</span>
                   </div>
                 </div>
 
                 {placedOrder.bank_transfer_due_date && (
-                  <div className="text-center text-xs text-gray-500 mt-2">
+                  <div className="text-center text-xs text-text-secondary mt-2">
                     Fecha límite: {formatDateTime(placedOrder.bank_transfer_due_date)}
                   </div>
                 )}
               </div>
 
-              <div className="mt-4 p-3 bg-orange-100 rounded-lg">
-                <p className="text-xs text-orange-800 font-medium">
-                  ⚠️ Importante: Una vez realizada la transferencia, tu pedido será procesado automáticamente.
-                  Recibirás confirmación por email.
+              <div className="mt-4 p-3 bg-surface rounded-lg border border-border">
+                <p className="text-xs text-text-secondary font-medium">
+                  Importante: Una vez realizada la transferencia, tu pedido será procesado automáticamente. Recibirás confirmación por email.
                 </p>
               </div>
             </div>
@@ -1201,25 +1243,25 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           {/* Payment Code for Cash at Bar */}
           {placedOrder.payment_type === "cash_at_bar" && placedOrder.cash_payment_code && (
-            <div className="bg-green-50 border-4 border-green-600 rounded-xl p-6 text-center shadow-lg">
-              <Banknote className="w-10 h-10 text-green-600 mx-auto mb-3" />
-              <p className="text-base font-semibold text-gray-700 mb-2">Tu código de pago es:</p>
-              <p className="text-6xl font-black text-green-600 tracking-widest mb-4">{placedOrder.cash_payment_code}</p>
-              <p className="text-sm font-medium text-gray-600 mb-4">
+            <div className="bg-bg-subtle border border-border rounded-xl p-6 text-center">
+              <Banknote className="w-8 h-8 text-text mx-auto mb-3" />
+              <p className="text-sm font-medium text-text mb-2">Tu código de pago es:</p>
+              <p className="text-6xl font-bold text-text tracking-widest mb-4">{placedOrder.cash_payment_code}</p>
+              <p className="text-sm text-text-secondary mb-4">
                 Muestra este código al personal en la barra
               </p>
-              <div className="mt-4 space-y-2 text-base bg-white rounded-lg p-4">
+              <div className="mt-4 space-y-2 text-base bg-surface rounded-lg p-4 border border-border">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 font-medium">Total a pagar:</span>
-                  <span className="font-bold text-gray-900">{formatCurrency(orderTotal)}</span>
+                  <span className="text-text-secondary font-medium">Total a pagar:</span>
+                  <span className="font-semibold text-text">{formatCurrency(orderTotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 font-medium">Traes:</span>
-                  <span className="font-bold text-gray-900">{formatCurrency(cashBrought)}</span>
+                  <span className="text-text-secondary font-medium">Traes:</span>
+                  <span className="font-semibold text-text">{formatCurrency(cashBrought)}</span>
                 </div>
-                <div className="flex justify-between border-t-2 border-gray-200 pt-2">
-                  <span className="text-gray-600 font-medium">Tu cambio:</span>
-                  <span className="font-black text-green-600 text-lg">{formatCurrency(change)}</span>
+                <div className="flex justify-between border-t border-border pt-2">
+                  <span className="text-text-secondary font-medium">Tu cambio:</span>
+                  <span className="font-bold text-text text-lg">{formatCurrency(change)}</span>
                 </div>
               </div>
             </div>
@@ -1392,10 +1434,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <button
               type="button"
               onClick={() => setOrderType("table")}
-              className={`p-4 rounded-lg border-2 font-semibold transition-colors ${
+              className={`p-4 rounded-2xl border font-medium transition-colors ${
                 orderType === "table"
-                  ? "border-accent bg-accent/10 text-accent"
-                  : "border-border hover:border-accent/50"
+                  ? "border-accent bg-accent/5 text-text"
+                  : "border-border text-text-secondary hover:border-accent/30"
               }`}
             >
               Comer aquí (Mesa)
@@ -1403,10 +1445,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <button
               type="button"
               onClick={() => setOrderType("takeaway")}
-              className={`p-4 rounded-lg border-2 font-semibold transition-colors ${
+              className={`p-4 rounded-2xl border font-medium transition-colors ${
                 orderType === "takeaway"
-                  ? "border-accent bg-accent/10 text-accent"
-                  : "border-border hover:border-accent/50"
+                  ? "border-accent bg-accent/5 text-text"
+                  : "border-border text-text-secondary hover:border-accent/30"
               }`}
             >
               Para llevar
@@ -1494,82 +1536,97 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             // Default to true if undefined (for backward compatibility before migration)
             const terminalEnabled = restaurant?.payment_terminal_enabled ?? true;
             const cashBarEnabled = restaurant?.payment_cash_bar_enabled ?? true;
-            const cardEnabled = (restaurant?.payment_card_enabled ?? true) && !!restaurant?.openpay_customer_id;
-            const bankTransferEnabled = (restaurant?.payment_bank_transfer_enabled ?? true) && !!restaurant?.openpay_customer_id;
+            // OPENPAY DISABLED: Waiting for production credentials
+            const cardEnabled = false; // (restaurant?.payment_card_enabled ?? true) && !!restaurant?.openpay_customer_id;
+            const bankTransferEnabled = false; // (restaurant?.payment_bank_transfer_enabled ?? true) && !!restaurant?.openpay_customer_id;
 
-            const enabledCount = [terminalEnabled, cashBarEnabled, cardEnabled, bankTransferEnabled].filter(Boolean).length;
-            const gridClass = enabledCount === 4 ? 'grid-cols-2' : enabledCount === 3 ? 'grid-cols-3' : enabledCount === 2 ? 'grid-cols-2' : 'grid-cols-1';
-
-            console.log("[CustomerMenu] Payment methods render:", {
-              terminalEnabled,
-              cashBarEnabled,
-              cardEnabled,
-              bankTransferEnabled,
-              enabledCount,
-              gridClass
-            });
+            const methods: {
+              key: typeof paymentMethod;
+              icon: React.ReactNode;
+              label: string;
+              enabled: boolean;
+            }[] = [
+              {
+                key: "terminal_at_table",
+                icon: <Smartphone className="w-5 h-5" />,
+                label: "Terminal a la mesa",
+                enabled: terminalEnabled,
+              },
+              {
+                key: "cash_at_bar",
+                icon: <Banknote className="w-5 h-5" />,
+                label: "Efectivo en barra",
+                enabled: cashBarEnabled,
+              },
+              {
+                key: "bank_transfer",
+                icon: <Building2 className="w-5 h-5" />,
+                label: "Transferencia",
+                enabled: bankTransferEnabled,
+              },
+              {
+                key: "now",
+                icon: <CreditCard className="w-5 h-5" />,
+                label: "Pagar ahora",
+                enabled: cardEnabled,
+              },
+            ];
 
             return (
-              <div className={`grid gap-2 ${gridClass}`}>
-                {terminalEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("terminal_at_table")}
-                    className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
-                      paymentMethod === "terminal_at_table"
-                        ? "border-blue-600 bg-blue-50 text-blue-600"
-                        : "border-border hover:border-blue-400"
-                    }`}
-                  >
-                    <Smartphone className="w-5 h-5" />
-                    <span className="text-xs">Terminal a la mesa</span>
-                  </button>
-                )}
-                {cashBarEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("cash_at_bar")}
-                    className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
-                      paymentMethod === "cash_at_bar"
-                        ? "border-green-600 bg-green-50 text-green-600"
-                        : "border-border hover:border-green-400"
-                    }`}
-                  >
-                    <Banknote className="w-5 h-5" />
-                    <span className="text-xs">Efectivo en barra</span>
-                  </button>
-                )}
-                {bankTransferEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("bank_transfer")}
-                    className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
-                      paymentMethod === "bank_transfer"
-                        ? "border-orange-600 bg-orange-50 text-orange-600"
-                        : "border-border hover:border-orange-400"
-                    }`}
-                  >
-                    <Building2 className="w-5 h-5" />
-                    <span className="text-xs">Transferencia</span>
-                  </button>
-                )}
-                {cardEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("now")}
-                    className={`p-3 rounded-lg border-2 font-semibold transition-colors flex flex-col items-center gap-2 ${
-                      paymentMethod === "now"
-                        ? "border-purple-600 bg-purple-50 text-purple-600"
-                        : "border-border hover:border-purple-400"
-                    }`}
-                  >
-                    <CreditCard className="w-5 h-5" />
-                    <span className="text-xs">Pagar ahora</span>
-                  </button>
-                )}
+              <div className="space-y-2">
+                {methods
+                  .filter((m) => m.enabled)
+                  .map((m) => {
+                    const selected = paymentMethod === m.key;
+                    return (
+                      <button
+                        key={m.key}
+                        type="button"
+                        onClick={() => setPaymentMethod(m.key)}
+                        className={`w-full p-3.5 rounded-2xl border transition-colors flex items-center gap-3 ${
+                          selected
+                            ? "border-accent bg-accent/5"
+                            : "border-border hover:border-accent/30"
+                        }`}
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            selected
+                              ? "bg-accent text-accent-foreground"
+                              : "bg-bg-subtle text-text-secondary"
+                          }`}
+                        >
+                          {m.icon}
+                        </div>
+                        <span
+                          className={`flex-1 text-left text-sm font-medium ${
+                            selected ? "text-text" : "text-text-secondary"
+                          }`}
+                        >
+                          {m.label}
+                        </span>
+                        <div
+                          className={`w-4.5 h-4.5 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                            selected ? "border-accent" : "border-border"
+                          }`}
+                        >
+                          {selected && (
+                            <div className="w-2.5 h-2.5 rounded-full bg-accent" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
               </div>
             );
           })()}
+
+          {/* Notice about online payments */}
+          <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-xs text-blue-800 dark:text-blue-200">
+              💳 Los pagos en línea (tarjeta y transferencia) estarán disponibles próximamente. Estamos trabajando en ello.
+            </p>
+          </div>
         </div>
 
         {/* Cash Amount (only for cash at bar) */}
@@ -1598,9 +1655,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         {/* Card Payment Form (only for pay now) */}
         {paymentMethod === "now" && (
-          <div className="space-y-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+          <div className="space-y-4 p-4 bg-bg-subtle border border-border rounded-lg">
             <h4 className="font-semibold text-text mb-3 flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-purple-600" />
+              <CreditCard className="w-5 h-5 text-text-secondary" />
               Información de la tarjeta
             </h4>
 
@@ -1703,8 +1760,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
 
             {/* Security badge */}
-            <div className="flex items-center gap-2 text-xs text-text-secondary bg-white p-2 rounded border border-purple-200">
-              <span className="text-green-600">🔒</span>
+            <div className="flex items-center gap-2 text-xs text-text-secondary bg-surface p-2 rounded border border-border">
+              <span>🔒</span>
               <span>Tus datos están protegidos y encriptados</span>
             </div>
           </div>

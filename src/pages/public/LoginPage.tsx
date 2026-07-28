@@ -8,7 +8,7 @@ import { isValidEmail } from "../../utils/helpers";
 import PinAuthentication from "../../components/auth/PinAuthentication";
 import { validateAdminPin, validateEmployeePin, isPinRequired } from "../../services/pinAuthService";
 import { startOrResumeShift } from "../../services/employeeService";
-import type { Employee } from "../../config/supabase";
+// import type { Employee } from "../../config/supabase"; // Not used
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();

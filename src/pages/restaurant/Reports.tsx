@@ -4,12 +4,12 @@ import {
   DollarSign,
   ShoppingBag,
   Package,
-  Calendar,
+  // Calendar, // Not used
   Download,
-  Users,
+  // Users, // Not used
   Coffee,
   UtensilsCrossed,
-  Percent,
+  // Percent, // Not used
   ChefHat,
   AlertCircle,
 } from "lucide-react";

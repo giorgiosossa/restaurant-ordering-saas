@@ -21,7 +21,7 @@ import {
   getMenuItemIngredients,
   getInventoryItems,
   addIngredientToMenuItem,
-  updateMenuItemIngredient,
+  // updateMenuItemIngredient, // Not used
   removeIngredientFromMenuItem,
 } from "../../services/inventoryService";
 import type { MenuItem, InventoryItem, MenuItemIngredientWithDetails } from "../../config/supabase";

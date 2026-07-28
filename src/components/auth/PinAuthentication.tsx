@@ -10,7 +10,7 @@ interface PinAuthenticationProps {
 }
 
 const PinAuthentication: React.FC<PinAuthenticationProps> = ({
-  restaurantId,
+  // restaurantId, // Not used in component
   onAdminAuth,
   onEmployeeAuth,
   onBack,

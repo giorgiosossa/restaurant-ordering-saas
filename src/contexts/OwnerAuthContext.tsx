@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
 import { supabase } from "../config/supabase";
-import { useNavigate } from "react-router-dom";
 
 type AccessType = "owner" | "employee" | null;
 

@@ -41,12 +41,15 @@ export interface OpenpayConfig {
   sandboxMode: boolean;
 }
 
-// Configuración de Openpay (sandbox)
+// Configuración de Openpay desde variables de entorno
 const OPENPAY_CONFIG: OpenpayConfig = {
-  merchantId: 'mbdayyuhcki0qyt3sjsx',
-  publicKey: 'pk_3d0f7efb1ab64999b80bbe271536337f',
-  sandboxMode: true,
+  merchantId: import.meta.env.VITE_OPENPAY_MERCHANT_ID || '',
+  publicKey: import.meta.env.VITE_OPENPAY_PUBLIC_KEY || '',
+  sandboxMode: import.meta.env.VITE_OPENPAY_ENVIRONMENT !== 'production',
 };
+
+// Feature flag: Openpay está deshabilitado hasta tener credenciales de producción
+const OPENPAY_ENABLED = false;
 
 /**
  * Esperar a que Openpay SDK esté disponible
@@ -88,6 +91,10 @@ function waitForOpenpay(timeout = 10000): Promise<void> {
  * Inicializar Openpay SDK
  */
 export async function initOpenpay(): Promise<string> {
+  if (!OPENPAY_ENABLED) {
+    throw new Error('Los pagos en línea están temporalmente deshabilitados. Estamos trabajando para habilitarlos pronto.');
+  }
+
   // Esperar a que el SDK esté cargado
   await waitForOpenpay();
 
@@ -115,6 +122,10 @@ export async function initOpenpay(): Promise<string> {
  * Tokenizar una tarjeta
  */
 export async function tokenizeCard(cardData: CardData): Promise<string> {
+  if (!OPENPAY_ENABLED) {
+    throw new Error('Los pagos en línea están temporalmente deshabilitados. Estamos trabajando para habilitarlos pronto.');
+  }
+
   return new Promise((resolve, reject) => {
     if (!window.OpenPay) {
       reject(new Error('Openpay SDK not loaded'));
@@ -148,6 +159,10 @@ export async function processCardPayment(
   amount: number,
   description: string
 ) {
+  if (!OPENPAY_ENABLED) {
+    throw new Error('Los pagos en línea están temporalmente deshabilitados. Estamos trabajando para habilitarlos pronto.');
+  }
+
   try {
     console.log('[OPENPAY] Processing card payment...');
 
@@ -285,6 +300,10 @@ export async function createBankTransferPayment(
   customerEmail: string,
   dueDate?: string
 ) {
+  if (!OPENPAY_ENABLED) {
+    throw new Error('Los pagos en línea están temporalmente deshabilitados. Estamos trabajando para habilitarlos pronto.');
+  }
+
   try {
     console.log('[OPENPAY] Creating bank transfer payment...');
 

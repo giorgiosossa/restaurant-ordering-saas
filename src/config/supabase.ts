@@ -245,7 +245,7 @@ export interface EmployeeShift {
 }
 
 // Order Events (Tracking de eventos)
-export type OrderEventType = "accepted" | "preparing" | "ready" | "completed" | "cancelled";
+export type OrderEventType = "accepted" | "preparing" | "ready" | "completed" | "cancelled" | "payment_verified" | "delivered";
 
 export interface OrderEvent {
   id: string;
