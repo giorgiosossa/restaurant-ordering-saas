@@ -32,13 +32,17 @@ const AdminLogin: React.FC = () => {
 
     try {
       // Use RPC function for admin login (password is sent as plain text, hashed in SQL)
+      console.log('[AdminLogin] Attempting login for:', formData.email.toLowerCase());
+
       const { data: adminData, error: adminError } = await supabase.rpc(
         "admin_login",
         {
-          p_email: formData.email.toLowerCase(),
-          p_password: formData.password,
+          p_email: formData.email.toLowerCase().trim(),
+          p_password: formData.password.trim(),
         }
       );
+
+      console.log('[AdminLogin] RPC Response:', { data: adminData, error: adminError });
 
       if (adminError) {
         console.error("Admin login RPC error:", adminError);
