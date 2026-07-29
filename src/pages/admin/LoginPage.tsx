@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Shield, ArrowLeft, Mail, Lock } from "lucide-react";
 import { Button, Input, Alert, Card } from "../../components/ui";
 import { supabase } from "../../config/supabase";
-import { isValidEmail, hashPassword } from "../../utils/helpers";
+import { isValidEmail } from "../../utils/helpers";
 
 const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -31,13 +31,12 @@ const AdminLogin: React.FC = () => {
     setLoading(true);
 
     try {
-      // Hash password and use RPC function for admin login
-      const passwordHash = await hashPassword(formData.password);
+      // Use RPC function for admin login (password is sent as plain text, hashed in SQL)
       const { data: adminData, error: adminError } = await supabase.rpc(
         "admin_login",
         {
           p_email: formData.email.toLowerCase(),
-          p_password_hash: passwordHash,
+          p_password: formData.password,
         }
       );
 
